@@ -1,0 +1,18 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"], 
+    }
+  },
+  "include": [
+    "src",
+    "src/@types/**/*.d.ts",
+    "env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+, "components/Timetable/CourseSelectionModal.js", "components/Timetable/TimetableApp.js", "src/features/todo/utils/Time/storage.js", "src/features/todo/utils/Time/timeUtils.tsx", "app/(tabs)/posts/index.tsx"  ]
+}
