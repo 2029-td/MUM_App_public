@@ -1,6 +1,7 @@
 // src/features/timetable/screen.tsx
 import React, { useState, useEffect, useCallback } from 'react';
 import useGoogleAuth from '~/hooks/useGoogleAuth';
+import { Chip } from 'react-native-paper';
 // カレンダー月表示用
 import CalendarView from './components/Calendar/CalendarView';
 import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
@@ -13,6 +14,8 @@ import { useExams } from './hooks/useExams';
 import { usePullToRefreshCalendar } from './hooks/usePullToRefreshCalendar';
 import { useCalendarEvents } from './hooks/useCalendarEvents';
 import { useCourseSearch } from './hooks/useCourseSearch';
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { useStyles } from '~/styles';
 
 // コンポーネント
 import { TimetableGrid } from './components/Timetable/TimetableGrid';
@@ -29,9 +32,6 @@ import { loadTimetableFromCSV } from './services/timetableCsvParser';
 
 // 型とconstantsとutils
 import type { CourseData, Subject, Exam, CalendarEvent } from './types';
-import { colorPalette } from './constants';
-import { flattenParsedClasses } from './utils/flattenParsedClasses';
-import { loadClassesData } from './utils/loadClassesData';
 import { useMemo } from 'react';
 
 export default function TimetablePage() {
@@ -52,6 +52,8 @@ export default function TimetablePage() {
 
   const { currentThemeId, getCurrentTheme, updateTheme } = useTheme();
   const currentTheme = getCurrentTheme();
+  const { theme } = useAppTheme();
+  const { colors } = useStyles();
   const {
     exams,
     addExam,
@@ -174,12 +176,19 @@ export default function TimetablePage() {
                   時間割表
                 </Text>
                 <View style={styles.headerButtons}>
-                  <TouchableOpacity
-                    style={styles.templateManagerButton}
+                  <Chip
+                    mode="flat"
+                    compact
+                    style={{
+                      backgroundColor: colors.surfaceSolid,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                    }}
+                    textStyle={{ color: theme.textColor }}
                     onPress={() => setIsTemplateModalVisible(true)}
                   >
-                    <Text style={{ color: getCurrentTheme().textColor }}>テンプレート</Text>
-                  </TouchableOpacity>
+                    <Text style={{ color: theme.textColor }}>テンプレート</Text>
+                  </Chip>
                 </View>
               </View>
 
@@ -447,11 +456,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 5,
     marginRight: 10,
-  },
-  templateManagerButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 8,
-    borderRadius: 5,
   },
   currentTemplateInfo: {
     padding: 10,

@@ -141,7 +141,11 @@ const TodoListWithCategoryFilter: React.FC<Props> = ({
           ref={filterChipRef}
           mode="flat"
           compact
-          style={{ backgroundColor: colors.surfaceSolid, borderColor: colors.border, borderWidth: 1, }}
+          style={{ 
+            backgroundColor: colors.surfaceSolid, 
+            borderColor: colors.border, 
+            borderWidth: 1, 
+          }}
           textStyle={{ color: theme.textColor }}  //「絞り込み」ボタンをテーマ色に
           onPress={openFilterMenu}
         >
