@@ -6,6 +6,9 @@ import {
   Modal,
   TextInput,
   StyleSheet,
+  ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { colorPalette } from '../../constants';
 import type { Subject } from '../../types';
@@ -31,9 +34,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 
   // subjectが変更されたときにlocalSubjectを初期化
   useEffect(() => {
-    if (subject) {
-      setLocalSubject({ ...subject });
-    }
+    if (subject) setLocalSubject({ ...subject });
   }, [subject]);   
 
   // localSubjectがnullまたはundefinedの場合はレンダリングしない
@@ -50,7 +51,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     const parsed = parseInt(credits, 10);
     setLocalSubject({
       ...localSubject,
-      credits: isNaN(parsed) ? 0 : parsed, // 初期値:0
+      credits: isNaN(parsed) ? 2 : parsed, // 初期値:2
     });
   };
 
@@ -77,140 +78,142 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   );
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>{localSubject.name}</Text>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      {/* ← キーボード回避 */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.select({ ios: 'padding', android: 'height' })}
+      >
+        <View style={styles.modalContainer}>
+          {/* 角丸のカード。overflow: 'hidden' で内側のスクロールも角丸に沿って描画 */}
+          <View style={styles.modalCard}>
+            {/* 中身をスクロール可能にする */}
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator
+              contentContainerStyle={styles.cardBody}
+            >
+              <Text style={styles.modalTitle}>{localSubject.name}</Text>
 
-          <View style={styles.subjectDetailContainer}>
-            {/* 教員を表示する欄 */}
-            <View style={styles.subjectDetailRow}>
-              <Text style={styles.subjectDetailLabel}>教員：</Text>
-              <Text style={styles.subjectDetailValue} numberOfLines={0} ellipsizeMode="tail">
-                {localSubject.professor}
-              </Text>
-            </View>
-            {/* 教室を表示する欄 */}
-            <View style={styles.subjectDetailRow}>
-              <Text style={styles.subjectDetailLabel}>教室：</Text>
-              <Text style={styles.subjectDetailValue}>
-                {localSubject.room}
-              </Text>
-            </View>
-          </View>
+              <View style={styles.subjectDetailContainer}>
+                <View style={styles.subjectDetailRow}>
+                  <Text style={styles.subjectDetailLabel}>教員：</Text>
+                  <Text style={styles.subjectDetailValue} numberOfLines={0}>
+                    {localSubject.professor}
+                  </Text>
+                </View>
+                <View style={styles.subjectDetailRow}>
+                  <Text style={styles.subjectDetailLabel}>教室：</Text>
+                  <Text style={styles.subjectDetailValue}>{localSubject.room}</Text>
+                </View>
+              </View>
 
-          {/* 科目の色を選択する欄 */}
-          <View style={styles.colorPickerContainer}>
-            <Text style={styles.colorPickerLabel}>科目の色を選択：</Text>
-            <View style={styles.colorPalette}>
-              {colorPalette.map((color, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[
-                    styles.colorOption,
-                    { backgroundColor: color },
-                    localSubject.color === color && styles.selectedColorOption
-                  ]}
-                  onPress={() => handleColorChange(color)}
+              <View style={styles.colorPickerContainer}>
+                <Text style={styles.colorPickerLabel}>科目の色を選択：</Text>
+                <View style={styles.colorPalette}>
+                  {colorPalette.map((color, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.colorOption,
+                        { backgroundColor: color },
+                        localSubject.color === color && styles.selectedColorOption,
+                      ]}
+                      onPress={() => handleColorChange(color)}
+                    />
+                  ))}
+                </View>
+              </View>
+
+              <View style={styles.subjectDetailRow}>
+                <Text style={styles.subjectDetailLabel}>単位数：</Text>
+                <TextInput
+                  style={styles.creditsInput}
+                  keyboardType="numeric"
+                  value={
+                    localSubject.credits === 0 ? '' : localSubject.credits?.toString() ?? '2'
+                  }
+                  onChangeText={handleCreditsChange}
+                  placeholder="単位数を入力"
                 />
-              ))}
-            </View>
+              </View>
+
+              <View style={styles.subjectDetailRow}>
+                <Text style={styles.subjectDetailLabel}>総授業回数：</Text>
+                <TextInput
+                  style={styles.creditsInput}
+                  keyboardType="numeric"
+                  value={
+                    localSubject.totalClasses === 0
+                      ? ''
+                      : localSubject.totalClasses?.toString() ?? '15'
+                  }
+                  onChangeText={handleTotalClassesChange}
+                  placeholder="総授業回数を入力"
+                />
+              </View>
+
+              <View style={styles.attendanceStats}>
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>出席</Text>
+                  <Text style={styles.statValue}>{localSubject.attendance}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>欠席</Text>
+                  <Text style={styles.statValue}>{localSubject.absence}</Text>
+                </View>
+                <View style={styles.statItem}>
+                  <Text style={styles.statLabel}>遅刻</Text>
+                  <Text style={styles.statValue}>{localSubject.late}</Text>
+                </View>
+              </View>
+
+              <View style={styles.attendanceRate}>
+                <Text style={styles.attendanceRateLabel}>出席率:</Text>
+                <Text style={styles.attendanceRateValue}>{attendanceRate}%</Text>
+              </View>
+
+              <View style={styles.attendanceButtons}>
+                <TouchableOpacity
+                  style={[styles.attendanceButton, styles.attendanceButtonPresent]}
+                  onPress={() => onUpdate('attendance')}
+                >
+                  <Text style={styles.buttonText}>出席</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.attendanceButton, styles.attendanceButtonAbsent]}
+                  onPress={() => onUpdate('absence')}
+                >
+                  <Text style={styles.buttonText}>欠席</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.attendanceButton, styles.attendanceButtonLate]}
+                  onPress={() => onUpdate('late')}
+                >
+                  <Text style={styles.buttonText}>遅刻</Text>
+                </TouchableOpacity>
+              </View>
+
+              <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+                <Text style={styles.buttonText}>科目を削除</Text>
+              </TouchableOpacity>
+
+              {/* 最下部ボタンもスクロール内に含める */}
+              <TouchableOpacity
+                style={styles.saveButton}
+                onPress={() => {
+                  onSubjectUpdate(localSubject);
+                  onClose();
+                }}
+              >
+                <Text style={styles.buttonText}>保存して閉じる</Text>
+              </TouchableOpacity>
+              {/* 下に少し余白を付けて端末によってはボタンがぎゅうぎゅうにならないように */}
+              <View style={{ height: 8 }} />
+            </ScrollView>
           </View>
-
-          
-          {/* 単位数を入力する欄 */}
-          <View style={styles.subjectDetailRow}>
-            <Text style={styles.subjectDetailLabel}>単位数：</Text>
-            <TextInput
-              style={styles.creditsInput}
-              keyboardType="numeric"
-              value={localSubject.credits === 0 ? '' : localSubject.credits?.toString() ?? ''}
-              onChangeText={handleCreditsChange}
-              placeholder="単位数を入力"
-            />
-          </View>
-
-          {/* 総授業回数を入力する欄 */}
-          <View style={styles.subjectDetailRow}>
-            <Text style={styles.subjectDetailLabel}>総授業回数：</Text>
-            <TextInput
-              style={styles.creditsInput}
-              keyboardType="numeric"
-              value={localSubject.totalClasses === 0 ? '' : localSubject.totalClasses?.toString() ?? '15'}
-              onChangeText={handleTotalClassesChange}
-              placeholder="総授業回数を入力"
-            />
-          </View>
-
-          <View style={styles.attendanceStats}>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>出席</Text>
-              <Text style={styles.statValue}>{localSubject.attendance}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>欠席</Text>
-              <Text style={styles.statValue}>{localSubject.absence}</Text>
-            </View>
-            <View style={styles.statItem}>
-              <Text style={styles.statLabel}>遅刻</Text>
-              <Text style={styles.statValue}>{localSubject.late}</Text>
-            </View>
-          </View>
-
-          <View style={styles.attendanceRate}>
-            <Text style={styles.attendanceRateLabel}>出席率:</Text>
-            <Text style={styles.attendanceRateValue}>
-              {attendanceRate}%
-            </Text>
-          </View>
-
-          {/* 出席、欠席、遅刻ボタン */}
-          <View style={styles.attendanceButtons}>
-            <TouchableOpacity
-              style={[styles.attendanceButton, styles.attendanceButtonPresent]}
-              onPress={() => onUpdate('attendance')}
-            >
-              <Text style={styles.buttonText}>出席</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.attendanceButton, styles.attendanceButtonAbsent]}
-              onPress={() => onUpdate('absence')}
-            >
-              <Text style={styles.buttonText}>欠席</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.attendanceButton, styles.attendanceButtonLate]}
-              onPress={() => onUpdate('late')}
-            >
-              <Text style={styles.buttonText}>遅刻</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={onDelete}
-          >
-            <Text style={styles.buttonText}>科目を削除</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.saveButton}
-            onPress={() => {
-              if (localSubject) {
-                onSubjectUpdate(localSubject);
-              }
-              onClose();
-            }}
-          >
-            <Text style={styles.buttonText}>保存して閉じる</Text>
-          </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 };
@@ -220,14 +223,21 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 12, // 極端に小さい端末でも左右に余白
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%',
+  // カードの枠（高さは画面の 90% まで・角丸を保ったまま中身がスクロール）
+  modalCard: {
+    width: '100%',
+    maxWidth: 560,         // タブレット対策
     maxHeight: '90%',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    overflow: 'hidden',    // 角丸に沿って内容をクリップ
+  },
+  // ScrollView の内側パディング
+  cardBody: {
+    padding: 20,
   },
   modalTitle: {
     fontSize: 18,
@@ -283,15 +293,6 @@ const styles = StyleSheet.create({
   selectedColorOption: {
     borderWidth: 3,
     borderColor: '#000',
-  },
-  attendanceInfo: {
-    marginBottom: 15,
-  },
-  attendanceLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: '#333',
   },
   creditsInput: {
     borderWidth: 1,
