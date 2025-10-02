@@ -16,7 +16,6 @@ const ThemeSelector: React.FC = () => {
           marginBottom: 8,
         }}
       >
-        テーマ
       </Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
         {predefinedThemes.map((t) => (
