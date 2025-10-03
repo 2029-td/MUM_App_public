@@ -46,7 +46,7 @@ cd MUM_App
 ### 2. 依存関係のインストール
 
 ```bash
-npm install
+npm ci
 ```
 
 ### 3. 環境変数の設定
@@ -74,16 +74,16 @@ REDIRECT_URI_WEB=your-redirect-uri-web
 
 ```bash
 # Expo開発サーバーの起動
-npx expo start
+npx expo start -c
 
 # iOSシミュレーターで起動
-npm run ios
+i
 
 # Androidエミュレーターで起動
-npm run android
+a
 
 # Webブラウザで起動
-npm run web
+w
 ```
 
 ## 📂 プロジェクト構成
@@ -156,7 +156,7 @@ features/[feature-name]/
 npm install [package-name]
 
 # キャッシュのクリア
-npx expo start --clear
+npx expo start -c
 
 # TypeScriptの型チェック
 npx tsc --noEmit
@@ -195,7 +195,7 @@ npm install
 
 ```bash
 # キャッシュをクリアして再起動
-npx expo start --clear
+npx expo start -c
 ```
 
 #### 3. iOS/Androidでビルドエラーが出る
