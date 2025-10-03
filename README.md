@@ -139,9 +139,6 @@ npx expo start -c
 
 # TypeScriptの型チェック
 npx tsc --noEmit
-
-# テストの実行
-npm test
 ```
 
 ## 📚 主要ライブラリ
