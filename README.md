@@ -49,28 +49,7 @@ cd MUM_App
 npm ci
 ```
 
-### 3. 環境変数の設定
-
-プロジェクトルートに `.env` ファイルを作成し、以下の環境変数を設定してください：
-
-```env
-GOOGLE_IOS_CLIENT_ID=your-ios-client-id
-GOOGLE_ANDROID_CLIENT_ID=your-android-client-id
-GOOGLE_WEB_CLIENT_ID=your-web-client-id
-
-REDIRECT_URI_IOS=your-redirect-uri-ios
-REDIRECT_URI_ANDROID=your-redirect-uri-android
-REDIRECT_URI_WEB=your-redirect-uri-web
-```
-
-**Google OAuth 設定方法:**
-1. [Google Cloud Console](https://console.cloud.google.com/)にアクセス
-2. 新しいプロジェクトを作成
-3. 「APIとサービス」→「認証情報」から OAuth 2.0 クライアント ID を作成
-4. iOS、Android、Webそれぞれのクライアント ID を取得
-5. `.env` ファイルに設定
-
-### 4. アプリケーションの起動
+### 3. アプリケーションの起動
 
 ```bash
 # Expo開発サーバーの起動
