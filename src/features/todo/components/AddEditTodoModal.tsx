@@ -212,34 +212,65 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
             {/* プラットフォーム選択（課題タグ時のみ） */}
             {category === '課題' && (
               <>
-                <Paragraph style={[styles.label, { color: theme.textColor }]}>提出先</Paragraph>
-                <View style={styles.radioRowHorizontal}>
-                  <View style={styles.radioItem}>
+                <Paragraph style={[styles.label, { color: theme.textColor }]}>
+                  提出先
+                </Paragraph>
+                <View style={styles.radioColumn}>
+                  <View style={styles.radioItemRow}>
                     <RadioButton.Android
                       value="classroom"
                       status={platform === 'classroom' ? 'checked' : 'unchecked'}
-                      onPress={() => setPlatform(platform === 'classroom' ? null : 'classroom')}
+                      onPress={() => 
+                        setPlatform(platform === 'classroom' ? null : 'classroom')
+                      }
                       color={theme.textColor}
                     />
-                    <Paragraph style={{ color: theme.textColor }}>Classroom</Paragraph>
+                    <Paragraph 
+                      style={{ color: theme.textColor, flexShrink: 1 }}
+                      onPress={() =>
+                        setPlatform(platform === 'classroom' ? null : 'classroom')
+                      }
+                    >
+                      Classroom
+                    </Paragraph>
                   </View>
-                  <View style={styles.radioItem}>
+
+                  <View style={styles.radioItemRow}>
                     <RadioButton.Android
                       value="moodle"
                       status={platform === 'moodle' ? 'checked' : 'unchecked'}
-                      onPress={() => setPlatform(platform === 'moodle' ? null : 'moodle')}
+                      onPress={() => 
+                        setPlatform(platform === 'moodle' ? null : 'moodle')
+                      }
                       color={theme.textColor}
                     />
-                    <Paragraph style={{ color: theme.textColor }}>Moodle</Paragraph>
+                    <Paragraph 
+                      style={{ color: theme.textColor, flexShrink: 1 }}
+                      onPress={() =>
+                        setPlatform(platform === 'moodle' ? null : 'moodle')
+                      }
+                    >
+                      Moodle
+                    </Paragraph>
                   </View>
-                  <View style={styles.radioItem}>
+
+                  <View style={styles.radioItemRow}>
                     <RadioButton.Android
                       value="canvas"
                       status={platform === 'canvas' ? 'checked' : 'unchecked'}
-                      onPress={() => setPlatform(platform === 'canvas' ? null : 'canvas')}
+                      onPress={() => 
+                        setPlatform(platform === 'canvas' ? null : 'canvas')
+                      }
                       color={theme.textColor}
                     />
-                    <Paragraph style={{ color: theme.textColor }}>Canvas</Paragraph>
+                    <Paragraph 
+                      style={{ color: theme.textColor, flexShrink: 1 }}
+                      onPress={() =>
+                        setPlatform(platform === 'canvas' ? null : 'canvas')
+                      }
+                    >
+                      Canvas
+                    </Paragraph>
                   </View>
                 </View>
               </>
@@ -334,9 +365,21 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContent: { padding: 20, marginHorizontal: 20, marginTop: 40 },
-  closeButtonContainer: { alignItems: 'flex-end', marginBottom: 10 },
-  label: { marginTop: 10, marginBottom: 6, fontSize: 14, fontWeight: '600' },
+  modalContent: { 
+    padding: 20, 
+    marginHorizontal: 20, 
+    marginTop: 40 
+  },
+  closeButtonContainer: { 
+    alignItems: 'flex-end', 
+    marginBottom: 10 
+  },
+  label: { 
+    marginTop: 10, 
+    marginBottom: 6, 
+    fontSize: 14, 
+    fontWeight: '600' 
+  },
   input: {
     height: 50,
     borderWidth: 1,
@@ -345,11 +388,26 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
   },
-  chip: { marginBottom: 16, alignSelf: 'flex-start' },
-  priorityContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  priorityButton: { flex: 1, marginHorizontal: 5 },
-  priorityText: { marginBottom: 15, fontSize: 16 },
-  dateButton: { marginBottom: 16 },
+  chip: { 
+    marginBottom: 16, 
+    alignSelf: 'flex-start' 
+  },
+  priorityContainer: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    marginBottom: 8 
+  },
+  priorityButton: { 
+    flex: 1, 
+    marginHorizontal: 5 
+  },
+  priorityText: { 
+    marginBottom: 15, 
+    fontSize: 16 
+  },
+  dateButton: { 
+    marginBottom: 16 
+  },
   pickerSheet: {
     marginTop: 8,
     borderRadius: 12,
@@ -363,11 +421,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff', // ← 白背景を明示
     overflow: 'hidden',       // 角丸を効かせる
   },
-  checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  checkboxLabel: { fontSize: 16 },
-  radioRowHorizontal: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
-  radioItem: { flexDirection: 'row', alignItems: 'center', marginRight: 16 },
-  submitButton: { marginTop: 16 },
+  checkboxContainer: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 15 
+  },
+  checkboxLabel: { 
+    fontSize: 16 
+  },
+  radioColumn: {
+    flexDirection: 'column',
+    alignSelf: 'stretch',
+    marginBottom: 15,
+  },
+  radioItemRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+  },
+  submitButton: { 
+    marginTop: 16 
+  },
 });
 
 export default AddEditTodoModal;

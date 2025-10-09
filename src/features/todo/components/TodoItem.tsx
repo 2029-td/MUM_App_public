@@ -19,7 +19,7 @@ const TodoItem: React.FC<Props> = ({ todo, onViewDetail, onDelete }) => {
 
   return (
     <Card
-    style={[styles.todoItem, { marginTop: 8 }]}
+      style={[styles.todoItem, { marginTop: 8 }]}
       onPress={() => onViewDetail(todo)}
     >
       <Card.Content>

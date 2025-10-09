@@ -79,11 +79,13 @@ const TodoDetailModal: React.FC<TodoDetailModalProps> = ({
 
         {todo.category === '課題' && todo.platform && (
           <Button
-            mode="outlined"
-            icon="arrow-right"
-            style={{ marginTop: 16 }}
-            textColor={theme.textColor}
-            onPress={() => Linking.openURL(platformUrls[todo.platform!])}
+          mode="contained"
+          icon="arrow-right"
+          style={[styles.notEqualWidthButton, { marginTop: 16, borderColor: colors.border }]}
+          contentStyle={styles.content}
+          buttonColor={colors.surface}
+          textColor={theme.textColor}
+          onPress={() => Linking.openURL(platformUrls[todo.platform!])}
           >
             {platformLabel[todo.platform]} に移動
           </Button>
@@ -93,26 +95,31 @@ const TodoDetailModal: React.FC<TodoDetailModalProps> = ({
           <Button
             mode="contained"
             onPress={handleToggle}
-            style={[styles.button, styles.fixedButton]}
-            buttonColor={colors.buttonSolidBg}
-            textColor={colors.buttonSolidText}
+            style={[styles.button, styles.notEqualWidthButton, { borderColor: colors.border }]}
+            contentStyle={styles.content}
+            buttonColor={colors.surface}
+            textColor={theme.textColor}
           >
             {localCompleted ? '未完了' : '完了'}
           </Button>
 
           <Button
-            mode="outlined"
+            mode="contained"
             onPress={() => onEdit(todo)}
-            style={styles.button}
+            style={[styles.button, styles.equalWidthButton, { borderColor: colors.border }]}
+            contentStyle={styles.content}
+            buttonColor={colors.surface}
             textColor={theme.textColor}
           >
             編集
           </Button>
 
           <Button
-            mode="outlined"
+            mode="contained"
             onPress={() => onDelete(todo.id)}
-            style={styles.button}
+            style={[styles.button, styles.equalWidthButton, { borderColor: colors.border }, ]}
+            contentStyle={styles.content}
+            buttonColor={colors.surface}
             textColor="red"
           >
             削除
@@ -148,14 +155,25 @@ const styles = StyleSheet.create({
     marginTop: 20,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
   },
   button: {
-    marginLeft: 10,
-    marginTop: 10,
+    marginLeft: 7,
+    marginTop: 7,
   },
-  fixedButton: {
-    width: 90,
+  equalWidthButton: {
+    borderRadius: 28, 
+    borderWidth: 1, 
+    elevation: 0, 
+  },
+  notEqualWidthButton: {
+    minWidth: 98,
+    borderRadius: 28, 
+    borderWidth: 1, 
+    elevation: 0, 
+  },
+  content: {
+    height: 44,
   },
 });
 
