@@ -49,28 +49,37 @@ const PolicyScreen = () => {
     label: string;
     onPress: () => void;
   }) => (
-    <Pressable
-      style={({ pressed }) => [
-        styles.button,
-        {
-          backgroundColor: theme.cellBackgroundColor,
-          borderColor: theme.headerColor,
-          borderWidth: 1,
-        },
-        pressed && styles.buttonPressed,
-      ]}
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-    >
-      <Ionicons name={iconName} size={20} style={[styles.icon, { color: theme.textColor }]} />
-      <Text style={[styles.buttonText, { color: theme.textColor }]}>{label}</Text>
-    </Pressable>
+    <View style={styles.row}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        android_ripple={{ color: 'rgba(0,0,0,0.08)' }}
+        style={({ pressed }) => [
+          styles.button,
+          {
+            backgroundColor: theme.cellBackgroundColor,
+            borderColor: theme.headerColor,
+          },
+          pressed && Platform.OS === 'ios' && styles.buttonPressed, // iOSのみ薄いフィードバック
+        ]}
+      >
+        <Ionicons 
+          name={iconName} 
+          size={20} 
+         style={[styles.icon, { color: theme.textColor }]} 
+        />
+        <Text style={[styles.buttonText, { color: theme.textColor }]}>
+          {label}
+        </Text>
+      </Pressable>
+    </View>
   );
 
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundColor }}
+      contentContainerStyle={{ paddingTop: 32, paddingBottom: 24 }}
       scrollEnabled={!themeModalVisible} // モーダル表示中は背面スクロールを抑止（任意）
     >
       <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
@@ -80,11 +89,21 @@ const PolicyScreen = () => {
           label="テーマ設定"
           onPress={() => setThemeModalVisible(true)}
         />
-
-        {/* ページ内のテーマ変更 UI は削除済み */}
-        <Button iconName="mail-outline" label="お問い合わせ" onPress={() => openLink(contactUrl)} />
-        <Button iconName="clipboard-outline" label="利用者アンケート" onPress={() => openLink(surveyUrl)}/>
-        <Button iconName="document-text-outline" label="プライバシーポリシー" onPress={() => openLink(privacyUrl)} />
+        <Button 
+          iconName="mail-outline" 
+          label="お問い合わせ" 
+          onPress={() => openLink(contactUrl)} 
+        />
+        <Button 
+          iconName="clipboard-outline" 
+          label="利用者アンケート" 
+          onPress={() => openLink(surveyUrl)}
+        />
+        <Button 
+          iconName="document-text-outline" 
+          label="プライバシーポリシー" 
+          onPress={() => openLink(privacyUrl)} 
+        />
       </View>
 
       {/* 中央表示モーダル */}
@@ -104,12 +123,14 @@ const PolicyScreen = () => {
             accessibilityLabel="モーダルを閉じる"
           />
           {/* ダイアログ本体 */}
-          <View style={[styles.dialog, { backgroundColor: theme.backgroundColor }]}
+          <View 
+            style={[styles.dialog, { backgroundColor: theme.backgroundColor }]}
             accessibilityViewIsModal
-            //accessibilityRole="dialog"
           >
             <View style={styles.dialogHeader}>
-              <Text style={[styles.dialogTitle, { color: theme.textColor }]}>テーマ設定</Text>
+              <Text style={[styles.dialogTitle, { color: theme.textColor }]}>
+                テーマ設定
+              </Text>
               <Pressable
                 onPress={() => setThemeModalVisible(false)}
                 accessibilityRole="button"
@@ -132,6 +153,8 @@ const PolicyScreen = () => {
 
 export default PolicyScreen;
 
+const RADIUS = 12;
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -139,22 +162,21 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingHorizontal: 20,
   },
+  row: {
+    width: '95%',
+    marginVertical: 12,
+  },
   button: {
     flexDirection: 'row',
     alignItems: 'center',
-    width: '95%',
     paddingVertical: 14,
     paddingHorizontal: 24,
-    marginVertical: 12,
-    borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: RADIUS,
+    borderWidth: 1,
+    overflow: 'hidden', // Ripple を角丸でクリップ
   },
   buttonPressed: {
-    opacity: Platform.OS === 'ios' ? 0.6 : 0.8,
+    opacity: 0.6,
   },
   icon: { marginRight: 12 },
   buttonText: { fontSize: 17, fontWeight: '600' },
@@ -178,17 +200,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 16,
-
-    // 影（iOS/Android）
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 12,
-
-    // 薄い枠（必要に応じて調整）
-    borderWidth: Platform.OS === 'ios' ? StyleSheet.hairlineWidth : 0,
-    borderColor: 'rgba(0,0,0,0.08)',
   },
   dialogHeader: {
     flexDirection: 'row',
