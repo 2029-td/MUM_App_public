@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "MUM2-Claude-",
-    "slug": "MUM2-Claude-",
-    "version": "1.0.0",
+    "name": "MUM",
+    "slug": "MUM",
+    "version": "1.0.1",
     "orientation": "portrait",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
