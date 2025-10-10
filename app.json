@@ -6,14 +6,17 @@
     "orientation": "portrait",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.matsulab.mumapp",
+      "buildNumber": "1",
+      "config": {
+        "usesNonExemptEncryption": false
+      }
     },
     "android": {
+      "package": "com.matsulab.mumapp",
+      "versionCode": 7,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
@@ -30,6 +33,12 @@
     ],
     "experiments": {
       "typedRoutes": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "af868753-6807-4c49-b16f-ccb51823e598"
+      }
     }
   }
 }
