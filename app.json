@@ -1,5 +1,6 @@
 {
   "expo": {
+    "owner": "teru0422",
     "name": "MUM",
     "slug": "MUM",
     "version": "1.0.1",
@@ -35,9 +36,8 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {},
       "eas": {
-        "projectId": "af868753-6807-4c49-b16f-ccb51823e598"
+        "projectId": "6d0d124c-2589-46a7-b9fc-6dc6055fea87"
       }
     }
   }
