@@ -3,7 +3,7 @@
     "owner": "teru0422",
     "name": "MUM",
     "slug": "MUM",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -17,7 +17,7 @@
     },
     "android": {
       "package": "com.matsulab.mumapp",
-      "versionCode": 7,
+      "versionCode": 10,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
@@ -30,7 +30,8 @@
       "expo-router",
       "expo-font",
       "expo-secure-store",
-      "expo-asset"
+      "expo-asset",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
