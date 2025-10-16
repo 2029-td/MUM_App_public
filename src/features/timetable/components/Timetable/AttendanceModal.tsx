@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { colorPalette } from '../../constants';
 import type { Subject } from '../../types';
+import { showDeleteConfirm } from '../Timetable/showDeleteConfirm';
 
 interface AttendanceModalProps {
   visible: boolean;
@@ -194,7 +195,8 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
+              <TouchableOpacity style={styles.deleteButton} onPress={() => showDeleteConfirm(onDelete)}
+                 >
                 <Text style={styles.buttonText}>科目を削除</Text>
               </TouchableOpacity>
 
