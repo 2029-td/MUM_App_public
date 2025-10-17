@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -18,9 +18,9 @@ interface AttendanceModalProps {
   visible: boolean;
   subject: Subject | null;
   onClose: () => void;
-  onUpdate: (type: 'attendance' | 'absence' | 'late') => void;
+  onUpdate: (type: 'attendance' | 'absence' | 'late') => void; // 合算のみ加算
   onDelete: () => void;
-  onSubjectUpdate: (updatedSubject: Subject) => void;
+  onSubjectUpdate: (updatedSubject: Subject) => void | Promise<void>;
 }
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({
@@ -33,62 +33,113 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 }) => {
   const [localSubject, setLocalSubject] = useState<Subject | null>(null);
 
-  // subjectが変更されたときにlocalSubjectを初期化
+  // 総授業回数の入力用一時ステート（文字列）
+  const [totalClassesInput, setTotalClassesInput] = useState<string>('');
+
+  // subject をローカルへコピー（モーダル内編集用）
   useEffect(() => {
-    if (subject) setLocalSubject({ ...subject });
-  }, [subject]);   
-
-  // localSubjectがnullまたはundefinedの場合はレンダリングしない
-  if (!localSubject) return null;
-
-  // 科目の色を変更した時の処理
-  const handleColorChange = (color: string) => {
-    const updatedSubject = { ...localSubject, color };
-    setLocalSubject(updatedSubject);
-  };
-
-  // 単位数を変更した時の処理
-  const handleCreditsChange = (credits: string) => {
-    const parsed = parseInt(credits, 10);
-    setLocalSubject({
-      ...localSubject,
-      credits: isNaN(parsed) ? 2 : parsed, // 初期値:2
-    });
-  };
-
-  // 総授業回数を変更した時の処理
-  const handleTotalClassesChange = (totalClasses: string) => {
-    const parsed = parseInt(totalClasses, 10);
-    setLocalSubject({
-      ...localSubject,
-      totalClasses: isNaN(parsed) ? 15 : parsed, // 初期値:15
-    });
-  };
-
-  // 保存
-  const handleSave = () => {
-    if (localSubject) {
-      onSubjectUpdate(localSubject);
+    if (subject) {
+      setLocalSubject({ ...subject });
+      // 入力欄は保存済みの値を文字列で同期（0/未設定は空にせず "15" にしておくならここで調整可能）
+      const base = subject.totalClasses && subject.totalClasses > 0
+        ? String(subject.totalClasses)
+        : '15';
+      setTotalClassesInput(base);
+    } else {
+      setLocalSubject(null);
+      setTotalClassesInput('');
     }
-    onClose();
-  };
+  }, [subject]);
 
-  // 出席率の計算
-  const attendanceRate = Math.round(
-    (localSubject.attendance / (localSubject.totalClasses || 15)) * 100
+  // ===== ハンドラ群 =====
+
+  const handleColorChange = useCallback((color: string) => {
+    setLocalSubject(prev => (prev ? { ...prev, color } : prev));
+  }, []);
+
+  const handleCreditsChange = useCallback((credits: string) => {
+    const parsed = parseInt(credits, 10);
+    setLocalSubject(prev =>
+      prev ? { ...prev, credits: Number.isFinite(parsed) ? parsed : 2 } : prev
+    );
+  }, []);
+
+  // 総授業回数：タイピング中は文字列だけ更新（即フォールバックしない）
+  const handleTotalClassesTyping = useCallback((text: string) => {
+    setTotalClassesInput(text);
+  }, []);
+
+  // 確定（完了/blur）時にだけ 15 へフォールバックし、localSubject に反映
+  const commitTotalClasses = useCallback(async () => {
+    const parsed = parseInt(totalClassesInput, 10);
+    const committed = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
+
+    setLocalSubject(prev => (prev ? { ...prev, totalClasses: committed } : prev));
+    setTotalClassesInput(String(committed));
+
+    // 即親へ同期したい場合はコメント解除
+    // if (localSubject) {
+    //   await Promise.resolve(onSubjectUpdate({ ...localSubject, totalClasses: committed }));
+    // }
+  }, [totalClassesInput /*, localSubject, onSubjectUpdate*/]);
+
+  // 保存（他の編集も含めて確定）
+  const handleSave = useCallback(() => {
+    if (localSubject) onSubjectUpdate(localSubject);
+    onClose();
+  }, [localSubject, onSubjectUpdate, onClose]);
+
+  // 表示/判定に使う総授業回数（未設定/0 は 15）
+  const TOTAL_CLASSES = useMemo(() => {
+    const v = localSubject?.totalClasses ?? 15;
+    return v > 0 ? v : 15;
+  }, [localSubject?.totalClasses]);
+
+  // 合算（出席+欠席+遅刻）
+  const totalRawCount = useMemo(() => {
+    const a = Math.max(0, localSubject?.attendance || 0);
+    const b = Math.max(0, localSubject?.absence || 0);
+    const l = Math.max(0, localSubject?.late || 0);
+    return a + b + l;
+  }, [localSubject?.attendance, localSubject?.absence, localSubject?.late]);
+
+  const isAtOrOverCap = totalRawCount >= TOTAL_CLASSES;
+  const isOverCap = totalRawCount > TOTAL_CLASSES;
+
+  // 出席率 = (出席 + 0.5×遅刻) / (出席 + 欠席 + 0.5×遅刻)
+  const attendanceRate = useMemo(() => {
+    const attend = Math.max(0, localSubject?.attendance || 0);
+    const absent = Math.max(0, localSubject?.absence || 0);
+    const late = Math.max(0, localSubject?.late || 0);
+
+    const lateAsHalf = late * 0.5;
+    const denom = attend + absent + lateAsHalf;
+    if (denom <= 0) return 0;
+
+    const numer = attend + lateAsHalf;
+    return Math.round((numer / denom) * 100);
+  }, [localSubject?.attendance, localSubject?.absence, localSubject?.late]);
+
+  const handleUpdateCapped = useCallback(
+    (type: 'attendance' | 'absence' | 'late') => {
+      if (!localSubject || isAtOrOverCap) return;
+      onUpdate(type);
+    },
+    [localSubject, isAtOrOverCap, onUpdate]
   );
+
+  // ===== 描画 =====
+
+  if (!localSubject) return null;
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      {/* ← キーボード回避 */}
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.select({ ios: 'padding', android: 'height' })}
       >
         <View style={styles.modalContainer}>
-          {/* 角丸のカード。overflow: 'hidden' で内側のスクロールも角丸に沿って描画 */}
           <View style={styles.modalCard}>
-            {/* 中身をスクロール可能にする */}
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
@@ -144,13 +195,10 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 <TextInput
                   style={styles.creditsInput}
                   keyboardType="numeric"
-                  value={
-                    localSubject.totalClasses === 0
-                      ? ''
-                      : localSubject.totalClasses?.toString() ?? '15'
-                  }
-                  onChangeText={handleTotalClassesChange}
-                  placeholder="総授業回数を入力"
+                  value={totalClassesInput}
+                  onChangeText={handleTotalClassesTyping}
+                  onEndEditing={commitTotalClasses}
+                  onSubmitEditing={commitTotalClasses}
                 />
               </View>
 
@@ -169,48 +217,90 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 </View>
               </View>
 
-              <View style={styles.attendanceRate}>
-                <Text style={styles.attendanceRateLabel}>出席率:</Text>
-                <Text style={styles.attendanceRateValue}>{attendanceRate}%</Text>
+              {/* 合算 / 総授業回数 */}
+              <View style={{ marginBottom: 8 }}>
+                <Text style={{ textAlign: 'center', color: '#666' }}>
+                  合算（出席+欠席+遅刻）: {totalRawCount} / {TOTAL_CLASSES}
+                </Text>
+                {isOverCap && (
+                  <Text style={{ textAlign: 'center', color: '#F44336', fontWeight: 'bold' }}>
+                    合算が総授業回数を超えています。値を見直してください。
+                  </Text>
+                )}
+                {!isOverCap && isAtOrOverCap && (
+                  <Text style={{ textAlign: 'center', color: '#F44336', fontWeight: 'bold' }}>
+                    上限に達しました
+                  </Text>
+                )}
+              </View>
+
+              {/* 授業回数進捗と出席率（横並び） */}
+              <View
+                style={{
+                  flexDirection: 'row',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  backgroundColor: '#e8f5e9',
+                  borderRadius: 5,
+                  padding: 10,
+                  marginBottom: 15,
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#333' }}>
+                  授業回数進捗: {totalRawCount} / {TOTAL_CLASSES}
+                </Text>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#4caf50' }}>
+                  出席率: {attendanceRate}%
+                </Text>
               </View>
 
               <View style={styles.attendanceButtons}>
                 <TouchableOpacity
-                  style={[styles.attendanceButton, styles.attendanceButtonPresent]}
-                  onPress={() => onUpdate('attendance')}
+                  style={[
+                    styles.attendanceButton,
+                    styles.attendanceButtonPresent,
+                    isAtOrOverCap && { opacity: 0.5 },
+                  ]}
+                  disabled={isAtOrOverCap}
+                  onPress={() => handleUpdateCapped('attendance')}
                 >
                   <Text style={styles.buttonText}>出席</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.attendanceButton, styles.attendanceButtonAbsent]}
-                  onPress={() => onUpdate('absence')}
+                  style={[
+                    styles.attendanceButton,
+                    styles.attendanceButtonAbsent,
+                    isAtOrOverCap && { opacity: 0.5 },
+                  ]}
+                  disabled={isAtOrOverCap}
+                  onPress={() => handleUpdateCapped('absence')}
                 >
                   <Text style={styles.buttonText}>欠席</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.attendanceButton, styles.attendanceButtonLate]}
-                  onPress={() => onUpdate('late')}
+                  style={[
+                    styles.attendanceButton,
+                    styles.attendanceButtonLate,
+                    isAtOrOverCap && { opacity: 0.5 },
+                  ]}
+                  disabled={isAtOrOverCap}
+                  onPress={() => handleUpdateCapped('late')}
                 >
                   <Text style={styles.buttonText}>遅刻</Text>
                 </TouchableOpacity>
               </View>
 
-              <TouchableOpacity style={styles.deleteButton} onPress={() => showDeleteConfirm(onDelete)}
-                 >
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={() => showDeleteConfirm(onDelete)}
+              >
                 <Text style={styles.buttonText}>科目を削除</Text>
               </TouchableOpacity>
 
-              {/* 最下部ボタンもスクロール内に含める */}
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={() => {
-                  onSubjectUpdate(localSubject);
-                  onClose();
-                }}
-              >
+              <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                 <Text style={styles.buttonText}>保存して閉じる</Text>
               </TouchableOpacity>
-              {/* 下に少し余白を付けて端末によってはボタンがぎゅうぎゅうにならないように */}
+
               <View style={{ height: 8 }} />
             </ScrollView>
           </View>
@@ -221,166 +311,33 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12, // 極端に小さい端末でも左右に余白
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  // カードの枠（高さは画面の 90% まで・角丸を保ったまま中身がスクロール）
-  modalCard: {
-    width: '100%',
-    maxWidth: 560,         // タブレット対策
-    maxHeight: '90%',
-    borderRadius: 12,
-    backgroundColor: '#fff',
-    overflow: 'hidden',    // 角丸に沿って内容をクリップ
-  },
-  // ScrollView の内側パディング
-  cardBody: {
-    padding: 20,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 15,
-    color: '#333',
-  },
-  subjectDetailContainer: {
-    backgroundColor: '#f5f5f5',
-    padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  subjectDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  subjectDetailLabel: {
-    fontSize: 14,
-    color: '#666666',
-  },
-  subjectDetailValue: {
-    fontSize: 14,
-    color: '#333333',
-    fontWeight: 'bold',
-    flexShrink: 1,
-    flexWrap: 'wrap',
-  },
-  colorPickerContainer: {
-    marginVertical: 15,
-  },
-  colorPickerLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
-  },
-  colorPalette: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    justifyContent: 'center',
-  },
-  colorOption: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#ddd',
-  },
-  selectedColorOption: {
-    borderWidth: 3,
-    borderColor: '#000',
-  },
-  creditsInput: {
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 8,
-    fontSize: 16,
-    color: '#333',
-  },
-  attendanceStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 15,
-    backgroundColor: '#f5f5f5',
-    padding: 10,
-    borderRadius: 5,
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statLabel: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 5,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  attendanceRate: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 15,
-    padding: 10,
-    backgroundColor: '#e8f5e9',
-    borderRadius: 5,
-  },
-  attendanceRateLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  attendanceRateValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#4caf50',
-  },
-  attendanceButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-  },
-  attendanceButton: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 5,
-    marginHorizontal: 5,
-    alignItems: 'center',
-  },
-  attendanceButtonPresent: {
-    backgroundColor: '#4CAF50',
-  },
-  attendanceButtonAbsent: {
-    backgroundColor: '#F44336',
-  },
-  attendanceButtonLate: {
-    backgroundColor: '#FFC107',
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  saveButton: {
-    backgroundColor: '#2196F3',
-    padding: 12,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 12, backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalCard: { width: '100%', maxWidth: 560, maxHeight: '90%', borderRadius: 12, backgroundColor: '#fff', overflow: 'hidden' },
+  cardBody: { padding: 20 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 15, color: '#333' },
+  subjectDetailContainer: { backgroundColor: '#f5f5f5', padding: 15, borderRadius: 8, marginBottom: 15 },
+  subjectDetailRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  subjectDetailLabel: { fontSize: 14, color: '#666666' },
+  subjectDetailValue: { fontSize: 14, color: '#333333', fontWeight: 'bold', flexShrink: 1, flexWrap: 'wrap' },
+  colorPickerContainer: { marginVertical: 15 },
+  colorPickerLabel: { fontSize: 16, fontWeight: 'bold', marginBottom: 10, color: '#333' },
+  colorPalette: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'center' },
+  colorOption: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#ddd' },
+  selectedColorOption: { borderWidth: 3, borderColor: '#000' },
+  creditsInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 8, fontSize: 16, color: '#333' },
+  attendanceStats: { flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8, backgroundColor: '#f5f5f5', padding: 10, borderRadius: 5 },
+  statItem: { alignItems: 'center' },
+  statLabel: { fontSize: 14, color: '#666', marginBottom: 5 },
+  statValue: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+  attendanceRate: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, padding: 10, backgroundColor: '#e8f5e9', borderRadius: 5 },
+  attendanceRateLabel: { fontSize: 16, fontWeight: 'bold', color: '#333' },
+  attendanceRateValue: { fontSize: 18, fontWeight: 'bold', color: '#4caf50' },
+  attendanceButtons: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  attendanceButton: { flex: 1, padding: 12, borderRadius: 5, marginHorizontal: 5, alignItems: 'center' },
+  attendanceButtonPresent: { backgroundColor: '#4CAF50' },
+  attendanceButtonAbsent: { backgroundColor: '#F44336' },
+  attendanceButtonLate: { backgroundColor: '#FFC107' },
+  deleteButton: { backgroundColor: '#F44336', padding: 12, borderRadius: 5, alignItems: 'center', marginBottom: 10 },
+  saveButton: { backgroundColor: '#2196F3', padding: 12, borderRadius: 5, alignItems: 'center' },
+  buttonText: { color: '#FFFFFF', fontSize: 16, fontWeight: 'bold' },
 });
