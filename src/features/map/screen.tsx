@@ -12,6 +12,13 @@ const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 const IMAGE_WIDTH = 1080;
 const IMAGE_HEIGHT = 1920;
 
+// ズーム境界を定数化
+const MIN_SCALE = 1;   // 初期表示以下には縮めない
+const MAX_SCALE = 5;   // 既存と同じ上限
+
+// 浮動小数ゆらぎ吸収用のイプシロン
+const EPS = 1e-4;
+
 const App: React.FC = () => {
   const [scale, setScale] = useState(1);
   const [selectedItem, setSelectedItem] = useState<MapItem | null>(null);
@@ -37,6 +44,10 @@ const App: React.FC = () => {
   
   // より小さいスケールを選択して画面内に収める
   const fitScale = Math.min(scaleByWidth, scaleByHeight);
+
+  // どの時点でも「縮小できるか」を計算
+  const canZoomOut = scale > MIN_SCALE + EPS;
+  const canZoomIn  = scale < MAX_SCALE - EPS;
   
   imageWidth = IMAGE_WIDTH * fitScale;
   imageHeight = IMAGE_HEIGHT * fitScale;
@@ -64,7 +75,8 @@ const App: React.FC = () => {
   }, []);
 
   const onPinchGestureEvent = (event: any) => {
-    const newScale = Math.min(Math.max(baseScale.current * event.nativeEvent.scale, 0.5), 5);
+    const raw = baseScale.current * event.nativeEvent.scale;
+    const newScale = Math.min(Math.max(raw, MIN_SCALE), MAX_SCALE);
     setScale(newScale);
   };
   
@@ -76,12 +88,20 @@ const App: React.FC = () => {
 
   // 拡大ボタンを押したときの処理
   const increaseScale = () => {
-    setScale(prevScale => Math.min(prevScale + 0.1, 5)); 
+    setScale(prev => {
+      const next = Math.min(prev + 0.1, MAX_SCALE);
+      baseScale.current = next;
+      return next;
+    });
   };
 
   // 縮小ボタンを押したときの処理
   const decreaseScale = () => {
-    setScale(prevScale => Math.max(prevScale - 0.1, 0.5));
+    setScale(prev => {
+      const next = Math.max(prev - 0.1, MIN_SCALE);
+      baseScale.current = next;
+      return next;
+    });
   };
 
   // 地図上の建物/自販機をクリックした時の処理
@@ -193,14 +213,14 @@ const App: React.FC = () => {
           ref={scrollViewRef}
           style={styles.scrollView}
           contentContainerStyle={{ minHeight: SCREEN_HEIGHT - 150 }}
-          nestedScrollEnabled              // ← ★追加
-          maximumZoomScale={5}
-          minimumZoomScale={0.5}
+          nestedScrollEnabled
+          maximumZoomScale={MAX_SCALE}
+          minimumZoomScale={MIN_SCALE}
         >
           {/* ② 内側：横スクロール用（horizontal を true） */}
           <ScrollView
-            horizontal                      // ← ★追加
-            nestedScrollEnabled             // ← ★追加
+            horizontal
+            nestedScrollEnabled
             contentContainerStyle={{ minWidth: SCREEN_WIDTH }}
           >
             <View style={[styles.mapContainer, { width: imageWidth * scale, height: imageHeight * scale }]}>
@@ -334,13 +354,26 @@ const App: React.FC = () => {
         />
       </TouchableOpacity>
 
-      {/* 拡大縮小ボタンの実装 */}
+      {/* 拡大・縮小ボタンの実装 */}
       <View style={styles.zoomButtonsContainer}>
-        <TouchableOpacity style={styles.zoomButton} onPress={increaseScale}>
-          <Text style={styles.zoomButtonText}>+</Text>
+        {/* 拡大ボタン */}
+        <TouchableOpacity
+          onPress={increaseScale}
+          disabled={!canZoomIn}
+          accessibilityState={{ disabled: !canZoomIn }}
+          style={[styles.zoomButton, !canZoomIn && styles.zoomButtonDisabled]}
+        >
+          <Text style={styles.zoomLabel}>＋</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.zoomButton} onPress={decreaseScale}>
-          <Text style={styles.zoomButtonText}>−</Text>
+
+        {/* 縮小ボタン */}
+        <TouchableOpacity
+          onPress={decreaseScale}
+          disabled={!canZoomOut}                        // ← 最小時は押せない
+          accessibilityState={{ disabled: !canZoomOut }}// ← アクセシビリティ連動
+          style={[styles.zoomButton, !canZoomOut && styles.zoomButtonDisabled]}
+        >
+          <Text style={styles.zoomLabel}>−</Text>
         </TouchableOpacity>
       </View>
     </GestureHandlerRootView>
@@ -477,6 +510,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  zoomButtonDisabled: {
+    opacity: 0.4,  // 無効時は薄く
+  },
+  zoomLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000', 
+    textAlign: 'center',
   },
   zoomButtonText: {
     fontSize: 20,
