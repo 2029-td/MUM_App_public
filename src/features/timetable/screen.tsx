@@ -164,31 +164,34 @@ export default function Page() {
     setSelectedSubject(updated); // モーダル内の値を即時反映
   }, [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]);
 
-  // ✅ 出席・欠席・遅刻ボタンの加算処理
-  const handleAttendanceUpdate = useCallback(async (type: 'attendance' | 'absence' | 'late') => {
-  const template = getCurrentTemplate();
-  if (!template) return;
+  // ✅ 出席・欠席・遅刻ボタンの加算処理（最新版を storage から取得）
+  const handleAttendanceUpdate = useCallback(
+    async (type: 'attendance' | 'absence' | 'late') => {
+      const template = getCurrentTemplate();
+      if (!template) return;
 
-  const day = selectedDay;
-  const period = String(selectedPeriod);
+      const day = selectedDay;
+      const period = String(selectedPeriod);
 
-  // ★ ここで“常に最新”の科目を取得（直前に onSubjectUpdate で保存された totalClasses を反映できる）
-  const current: Subject | undefined = template.timetable?.[day]?.[period];
-  if (!current) return;
+      // ★ ここがポイント：storage から最新を読み直す
+      const templates = await storageService.getTemplates();
+      const fresh = templates.find(t => t.id === template.id);
+      const current: Subject | undefined = fresh?.timetable?.[day]?.[period];
+      if (!current) return;
 
-  const cap = current.totalClasses && current.totalClasses > 0 ? current.totalClasses : 15;
-  const total = (current.attendance ?? 0) + (current.absence ?? 0) + (current.late ?? 0);
-  if (total >= cap) return; // 上限
+      const cap = current.totalClasses && current.totalClasses > 0 ? current.totalClasses : 15;
+      const total = (current.attendance ?? 0) + (current.absence ?? 0) + (current.late ?? 0);
+      if (total >= cap) return;
 
-  const next: Subject = { ...current, [type]: (current[type] ?? 0) + 1 };
+      const next: Subject = { ...current, [type]: (current[type] ?? 0) + 1 };
 
-  await updateSubject(template.id, day, period, next);
-  const updatedTemplates = await storageService.getTemplates();
-  await setTemplates(updatedTemplates);
-  setSelectedSubject(next); // モーダル内の即時反映（任意）
-}, [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]);
-
-
+      await updateSubject(template.id, day, period, next);
+      const updatedTemplates = await storageService.getTemplates();
+      await setTemplates(updatedTemplates);
+      setSelectedSubject(next);
+    },
+    [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]
+  );
 
   return (
     isTemplateLoading || isDataLoading ? (
