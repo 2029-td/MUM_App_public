@@ -67,7 +67,17 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     }
 
     try {
-      await onSave(localExam);
+      if (!localExam) throw new Error('localExam is empty');
+      if (!localExam.date) throw new Error('Exam date is required');
+      if (!localExam.location) throw new Error('Exam location is required');
+      // 他にも必要な必須項目があればここでチェック
+
+      // 型を Omit<Exam, 'id'> に収めてから id は任意で付与
+      const { id, ...rest } = localExam;
+      await onSave({
+        ...(rest as Omit<Exam, 'id'>),
+        ...(id ? { id } : {}),
+      });
     } catch (error) {
       Alert.alert('エラー', '試験の保存に失敗しました');
     }
