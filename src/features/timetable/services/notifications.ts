@@ -1,5 +1,6 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import { SchedulableTriggerInputTypes } from 'expo-notifications';
 
 // 通知の初期設定
 Notifications.setNotificationHandler({
@@ -7,6 +8,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -39,7 +42,7 @@ export const notificationService = {
         title,
         body,
       },
-      trigger: notificationDate,
+      trigger: { type: SchedulableTriggerInputTypes.DATE, date: notificationDate },
     });
   },
 };

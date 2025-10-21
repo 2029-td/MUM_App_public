@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
 
 export interface ClassInfo {
@@ -18,7 +18,7 @@ export const loadClassesData = async (): Promise<ClassInfo[]> => {
 
   // ファイル読み込み
   const csv = await FileSystem.readAsStringAsync(asset.localUri!, {
-    encoding: FileSystem.EncodingType.UTF8,
+    encoding:'utf8',
   });
 
   // ヘッダなしでパースすることで列数・重複ヘッダを気にしない

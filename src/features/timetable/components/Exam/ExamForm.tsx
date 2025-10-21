@@ -77,7 +77,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
             >
               <Text style={styles.subjectName}>{subject.name}</Text>
               <Text style={styles.subjectInfo}>
-                {subject.professor} / {subject.department}
+                {subject.professor}
               </Text>
             </TouchableOpacity>
           ))}

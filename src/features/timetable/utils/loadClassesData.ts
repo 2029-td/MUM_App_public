@@ -1,5 +1,5 @@
 import { Asset } from 'expo-asset';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
 
 export interface ClassInfo {
@@ -14,7 +14,7 @@ export const loadClassesData = async (): Promise<ClassInfo[]> => {
   await asset.downloadAsync();
 
   const csv = await FileSystem.readAsStringAsync(asset.localUri!, {
-    encoding: FileSystem.EncodingType.UTF8,
+    encoding: 'utf8',
   });
 
   const raw = Papa.parse<string[]>(csv, {
