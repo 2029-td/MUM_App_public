@@ -34,7 +34,7 @@ import { loadTimetableFromCSV } from './services/timetableCsvParser';
 import type { CourseData, Subject, Exam, CalendarEvent } from './types';
 import { useMemo } from 'react';
 
-export default function TimetablePage() {
+export default function Page() {
   // カスタムフックの初期化
   const {
     templates,
@@ -149,6 +149,49 @@ export default function TimetablePage() {
       setIsDataLoading(false);
     }
   };
+
+    // ✅ モーダルからの更新を保存
+  const handleSubjectUpdate = useCallback(async (updated: Subject) => {
+    const templateId = getCurrentTemplate()?.id;
+    if (!templateId) return;
+
+    const day = selectedDay;
+    const period = String(selectedPeriod);
+
+    await updateSubject(templateId, day, period, updated);
+    const updatedTemplates = await storageService.getTemplates();
+    await setTemplates(updatedTemplates);
+    setSelectedSubject(updated); // モーダル内の値を即時反映
+  }, [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]);
+
+  // ✅ 出席・欠席・遅刻ボタンの加算処理（最新版を storage から取得）
+  const handleAttendanceUpdate = useCallback(
+    async (type: 'attendance' | 'absence' | 'late') => {
+      const template = getCurrentTemplate();
+      if (!template) return;
+
+      const day = selectedDay;
+      const period = String(selectedPeriod);
+
+      // ★ ここがポイント：storage から最新を読み直す
+      const templates = await storageService.getTemplates();
+      const fresh = templates.find(t => t.id === template.id);
+      const current: Subject | undefined = fresh?.timetable?.[day]?.[period];
+      if (!current) return;
+
+      const cap = current.totalClasses && current.totalClasses > 0 ? current.totalClasses : 15;
+      const total = (current.attendance ?? 0) + (current.absence ?? 0) + (current.late ?? 0);
+      if (total >= cap) return;
+
+      const next: Subject = { ...current, [type]: (current[type] ?? 0) + 1 };
+
+      await updateSubject(template.id, day, period, next);
+      const updatedTemplates = await storageService.getTemplates();
+      await setTemplates(updatedTemplates);
+      setSelectedSubject(next);
+    },
+    [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]
+  );
 
   return (
     isTemplateLoading || isDataLoading ? (
@@ -318,65 +361,19 @@ export default function TimetablePage() {
             visible={isAttendanceModalVisible}
             subject={selectedSubject}
             onClose={() => setIsAttendanceModalVisible(false)}
-            onUpdate={(type) => {
-              if (!selectedSubject) return;
-              const templateId = getCurrentTemplate()?.id;
-              const day = selectedDay;
-              const period = String(selectedPeriod);
-              const updatedSubject = { ...selectedSubject };
-              updatedSubject[type] += 1;
-              updateSubject(templateId, day, period, updatedSubject)
-                .then(async () => {
-                  const updatedTemplates = await storageService.getTemplates();
-                  await setTemplates(updatedTemplates);
-                  setSelectedSubject(updatedSubject);
-                });
-            }}
+            // ← 親側の合算上限チェック付きロジックを渡す
+            onUpdate={handleAttendanceUpdate}
             onDelete={async () => {
               const templateId = getCurrentTemplate()?.id;
               const day = selectedDay;
               const period = String(selectedPeriod);
-              const subjectId = `${day}-${period}-${selectedSubject?.name}`;
               await deleteSubject(templateId, day, period);
               const updatedTemplates = await storageService.getTemplates();
               await setTemplates(updatedTemplates);
               setIsAttendanceModalVisible(false);
             }}
-            onSubjectUpdate={async (updatedSubject) => {
-              const templateId = getCurrentTemplate()?.id;
-              const day = selectedDay;
-              const period = String(selectedPeriod);
-
-              await updateSubject(templateId, day, period, updatedSubject);
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
-              setSelectedSubject(updatedSubject);
-            }}
-          />
-          <TemplateModal
-            visible={isTemplateModalVisible}
-            onClose={() => setIsTemplateModalVisible(false)}
-            templates={templates}
-            currentTemplateId={currentTemplateId}
-            onTemplateSelect={async (id) => {
-              await setCurrentTemplateId(id);
-              await storageService.saveCurrentTemplateId(id);
-              setIsTemplateModalVisible(false);
-            }}
-            onTemplateAdd={async (name) => {
-              await addTemplate(name);
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
-            }}
-            onTemplateDelete={async (id) => {
-              await deleteTemplate(id);
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
-            }}
-            onTemplatesUpdate={async () => {
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
-            }}
+            // ← 親側の保存ロジックに統一
+            onSubjectUpdate={handleSubjectUpdate}
           />
           <ExamModal
             visible={isExamModalVisible}
