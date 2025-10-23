@@ -3,8 +3,14 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "~/*": ["src/*"], 
-    }
+      "~/*": ["src/*"]
+    },
+    "types": [
+      "react",
+      "react-native",
+      "jest",
+      "node"
+    ]
   },
   "include": [
     "src",
@@ -13,6 +19,11 @@
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-, "components/Timetable/CourseSelectionModal.js", "components/Timetable/TimetableApp.js", "src/features/todo/utils/Time/storage.js", "src/features/todo/utils/Time/timeUtils.tsx", "app/(tabs)/posts/index.tsx"  ]
+    "expo-env.d.ts",
+    "components/Timetable/CourseSelectionModal.js",
+    "components/Timetable/TimetableApp.js",
+    "src/features/todo/utils/Time/storage.js",
+    "src/features/todo/utils/Time/timeUtils.tsx",
+    "app/(tabs)/posts/index.tsx"
+  ]
 }
