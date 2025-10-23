@@ -18,7 +18,7 @@ const contactUrl =
   'https://docs.google.com/forms/d/e/1FAIpQLSckh5xw6YUm6qpWSZtU23q_WIEhBuQZtEYRz00uYeFhY2Q-HQ/viewform?usp=header';
 const privacyUrl = 'https://www.matsulab.org/privacypolicy/mum';
 const surveyUrl =
-  'https://docs.google.com/forms/d/e/1FAIpQLSfcSzFwk70S0AWYhkS3ZTwYG1m_RTBzggoVyfAgKKgDtEBqnA/viewform?usp=header';
+  'https://forms.gle/TnV5QnRmNytDszmK7';
 
 const PolicyScreen = () => {
   const { theme } = useAppTheme();
