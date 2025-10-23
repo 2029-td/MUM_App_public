@@ -27,6 +27,8 @@ export interface Subject {
   totalClasses: number; // 総授業回数
   nextClassDate?: string;
   note?: string;
+  linkGroupId?: string; // 連続コマのグルーピングID（同一授業で共通)
+  linkedPeriods?: number[]; // 同一曜日で連続するコマ番号の配列（例: [3,4]
 }
 
 // 時間割の型（曜日と時限で科目を管理）

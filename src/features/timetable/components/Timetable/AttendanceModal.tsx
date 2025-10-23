@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  TextInput,
-  StyleSheet,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
+  View, Text, TouchableOpacity, Modal, TextInput, StyleSheet,
+  ScrollView, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { colorPalette } from '../../constants';
 import type { Subject } from '../../types';
@@ -18,26 +11,18 @@ interface AttendanceModalProps {
   visible: boolean;
   subject: Subject | null;
   onClose: () => void;
-  onUpdate: (type: 'attendance' | 'absence' | 'late') => void; // 出欠ボタンは合算のみ加算
+  onUpdate: (type: 'attendance' | 'absence' | 'late') => void;
   onDelete: () => void;
-  onSubjectUpdate: (updatedSubject: Subject) => void | Promise<void>; // 親へ保存（即時反映にも使用）
+  onSubjectUpdate: (updatedSubject: Subject) => void | Promise<void>;
 }
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({
-  visible,
-  subject,
-  onClose,
-  onUpdate,
-  onDelete,
-  onSubjectUpdate,
+  visible, subject, onClose, onUpdate, onDelete, onSubjectUpdate,
 }) => {
   const [localSubject, setLocalSubject] = useState<Subject | null>(null);
-
-  // 入力フィールド用の一時文字列（チラつき防止）
   const [totalClassesInput, setTotalClassesInput] = useState<string>('');
   const [creditsInput, setCreditsInput] = useState<string>('');
 
-  // subject をローカルへコピー & 入力欄同期
   useEffect(() => {
     if (subject) {
       setLocalSubject({ ...subject });
@@ -52,9 +37,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     }
   }, [subject]);
 
-  // ===== ハンドラ群 =====
-
-  // 色：タップした瞬間に即保存
   const handleColorChange = useCallback((color: string) => {
     setLocalSubject(prev => {
       if (!prev) return prev;
@@ -64,58 +46,33 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     });
   }, [onSubjectUpdate]);
 
-  // 単位：タイピング中は文字列のみ更新
-  const handleCreditsTyping = useCallback((text: string) => {
-    setCreditsInput(text);
-  }, []);
-
-  // 単位：完了/blur時にだけパースして保存
+  const handleCreditsTyping = useCallback((text: string) => setCreditsInput(text), []);
   const commitCredits = useCallback(async () => {
     const parsed = parseInt(creditsInput, 10);
-    // 空欄や不正値は 0 として保存（表示は空欄にする）
     const committed = Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
-
     setLocalSubject(prev => (prev ? { ...prev, credits: committed } : prev));
     setCreditsInput(committed > 0 ? String(committed) : '');
-
-    if (localSubject) {
-      await Promise.resolve(onSubjectUpdate({ ...localSubject, credits: committed }));
-    }
+    if (localSubject) await Promise.resolve(onSubjectUpdate({ ...localSubject, credits: committed }));
   }, [creditsInput, localSubject, onSubjectUpdate]);
 
-
-  // 総授業回数：タイピング中は文字列のみ（削除中は空を維持）
-  const handleTotalClassesTyping = useCallback((text: string) => {
-    setTotalClassesInput(text);
-  }, []);
-
-  // 総授業回数：完了/blur時だけ15へフォールバックして反映（※必要なら親即保存に切替可）
+  const handleTotalClassesTyping = useCallback((t: string) => setTotalClassesInput(t), []);
   const commitTotalClasses = useCallback(async () => {
     const parsed = parseInt(totalClassesInput, 10);
     const committed = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
-
     setLocalSubject(prev => (prev ? { ...prev, totalClasses: committed } : prev));
     setTotalClassesInput(String(committed));
+  }, [totalClassesInput]);
 
-    // 親へ即保存したい場合はコメント解除
-    // if (localSubject) {
-    //   await Promise.resolve(onSubjectUpdate({ ...localSubject, totalClasses: committed }));
-    // }
-  }, [totalClassesInput /*, localSubject, onSubjectUpdate */]);
-
-  // 「保存して閉じる」：他の編集も含めて最終確定
   const handleSave = useCallback(() => {
     if (localSubject) onSubjectUpdate(localSubject);
     onClose();
   }, [localSubject, onSubjectUpdate, onClose]);
 
-  // 表示/判定用の総授業回数（0/未設定は15）
   const TOTAL_CLASSES = useMemo(() => {
     const v = localSubject?.totalClasses ?? 15;
     return v > 0 ? v : 15;
   }, [localSubject?.totalClasses]);
 
-  // 合算（出席+欠席+遅刻）
   const totalRawCount = useMemo(() => {
     const a = Math.max(0, localSubject?.attendance || 0);
     const b = Math.max(0, localSubject?.absence || 0);
@@ -124,44 +81,18 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
   }, [localSubject?.attendance, localSubject?.absence, localSubject?.late]);
 
   const isAtOrOverCap = totalRawCount >= TOTAL_CLASSES;
-  const isOverCap = totalRawCount > TOTAL_CLASSES;
 
   // 出席率 = (出席 + 0.5×遅刻) / 授業回数の進捗（= 出席 + 欠席 + 遅刻）
   const attendanceRate = useMemo(() => {
-  const attend = Math.max(0, localSubject?.attendance || 0);
-  const absent = Math.max(0, localSubject?.absence || 0);
-  const late = Math.max(0, localSubject?.late || 0);
+    const attend = Math.max(0, localSubject?.attendance || 0);
+    const absent = Math.max(0, localSubject?.absence || 0);
+    const late = Math.max(0, localSubject?.late || 0);
+    const numer = attend + late * 0.5;
+    const denom = attend + absent + late;
+    if (denom <= 0) return 0;
+    return Math.round((numer / denom) * 100);
+  }, [localSubject?.attendance, localSubject?.absence, localSubject?.late]);
 
-  const numer = attend + late * 0.5;
-  const denom = attend + absent + late; // ← 授業回数の進捗（生の合計）
-  if (denom <= 0) return 0;
-
-  return Math.round((numer / denom) * 100);
-}, [localSubject?.attendance, localSubject?.absence, localSubject?.late]);
-
-
-// ✅ 出欠ボタン：押した瞬間に「総授業回数」を確定してから onUpdate 実行
-  const handleUpdateCapped = useCallback(
-    async (type: 'attendance' | 'absence' | 'late') => {
-      if (!localSubject) return;
-
-      // 1) 入力中の総授業回数をまず確定
-      const parsed = parseInt(totalClassesInput, 10);
-      const committed = Number.isFinite(parsed) && parsed > 0 ? parsed : 15;
-
-      setLocalSubject(prev => (prev ? { ...prev, totalClasses: committed } : prev));
-      setTotalClassesInput(String(committed));
-
-      // 2) 親へ即保存（親の cap 判定が最新値で動く）
-      await Promise.resolve(onSubjectUpdate({ ...localSubject, totalClasses: committed }));
-
-      // 3) その後に出欠加算（親側の handleAttendanceUpdate が cap で止める）
-      onUpdate(type);
-    },
-    [localSubject, totalClassesInput, onSubjectUpdate, onUpdate]
-  );
-
-  // 1減算（0未満にしない）して即保存
   const handleDecrement = async (type: 'attendance' | 'absence' | 'late') => {
     if (!localSubject) return;
     const current = localSubject[type] ?? 0;
@@ -178,8 +109,6 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
     await Promise.resolve(onSubjectUpdate(updated));
   };
 
-  // ===== 描画 =====
-
   if (!localSubject) return null;
 
   return (
@@ -190,19 +119,13 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalCard}>
-            <ScrollView
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator
-              contentContainerStyle={styles.cardBody}
-            >
+            <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator contentContainerStyle={styles.cardBody}>
               <Text style={styles.modalTitle}>{localSubject.name}</Text>
 
               <View style={styles.subjectDetailContainer}>
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>教員：</Text>
-                  <Text style={styles.subjectDetailValue} numberOfLines={0}>
-                    {localSubject.professor}
-                  </Text>
+                  <Text style={styles.subjectDetailValue} numberOfLines={0}>{localSubject.professor}</Text>
                 </View>
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>教室：</Text>
@@ -252,14 +175,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 />
               </View>
 
-              {/* 進捗（左）と出席率（右）を1行・左右端揃え */}
               <View style={styles.progressRow}>
-                <Text style={styles.progressLeft}>
-                  授業回数進捗: {totalRawCount} / {TOTAL_CLASSES}
-                </Text>
-                <Text style={styles.progressRight}>
-                  出席率: {attendanceRate}%
-                </Text>
+                <Text style={styles.progressLeft}>授業回数進捗: {totalRawCount} / {TOTAL_CLASSES}</Text>
+                <Text style={styles.progressRight}>出席率: {attendanceRate}%</Text>
               </View>
 
               {/* 出席・欠席・遅刻：カード＋ステッパー */}
@@ -272,72 +190,47 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                   const count = Number(localSubject[key as keyof Subject] ?? 0);
                   const isDecrementDisabled = count <= 0;
                   const isIncrementDisabled = isAtOrOverCap;
-
                   return (
                     <View key={key} style={[styles.attendanceGroup, { backgroundColor: color, borderColor: border }]}>
                       <Text style={[styles.groupTitle, { color: border }]}>{title}</Text>
                       <Text style={styles.countValue}>{count}</Text>
                       <View style={styles.stepperRow}>
-                        {/* 減算ボタン */}
+                        {/* 減算 */}
                         <TouchableOpacity
                           style={[
                             styles.stepperCircle,
                             !isDecrementDisabled && {
                               backgroundColor: '#ffffff',
                               borderColor: '#aaa',
-                              shadowColor: '#000',
-                              shadowOpacity: 0.1,
-                              shadowRadius: 2,
-                              elevation: 2,
+                              shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
                             },
                             isDecrementDisabled && {
-                              backgroundColor: '#dcdcdc',
-                              borderColor: '#c0c0c0',
-                              opacity: 0.5,
+                              backgroundColor: '#dcdcdc', borderColor: '#c0c0c0', opacity: 0.5,
                             },
                           ]}
                           disabled={isDecrementDisabled}
                           onPress={() => handleDecrement(key as any)}
                         >
-                          <Text
-                            style={[
-                              styles.stepperSign,
-                              isDecrementDisabled && { color: '#999999' },
-                            ]}
-                          >
-                            −
-                          </Text>
+                          <Text style={[styles.stepperSign, isDecrementDisabled && { color: '#999999' }]}>−</Text>
                         </TouchableOpacity>
 
-                        {/* 加算ボタン */}
+                        {/* 加算 */}
                         <TouchableOpacity
                           style={[
                             styles.stepperCircle,
                             !isIncrementDisabled && {
                               backgroundColor: '#ffffff',
                               borderColor: '#aaa',
-                              shadowColor: '#000',
-                              shadowOpacity: 0.1,
-                              shadowRadius: 2,
-                              elevation: 2,
+                              shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
                             },
                             isIncrementDisabled && {
-                              backgroundColor: '#dcdcdc',
-                              borderColor: '#c0c0c0',
-                              opacity: 0.5,
+                              backgroundColor: '#dcdcdc', borderColor: '#c0c0c0', opacity: 0.5,
                             },
                           ]}
                           disabled={isIncrementDisabled}
                           onPress={() => handleIncrement(key as any)}
                         >
-                          <Text
-                            style={[
-                              styles.stepperSign,
-                              isIncrementDisabled && { color: '#999999' },
-                            ]}
-                          >
-                            ＋
-                          </Text>
+                          <Text style={[styles.stepperSign, isIncrementDisabled && { color: '#999999' }]}>＋</Text>
                         </TouchableOpacity>
                       </View>
                     </View>
@@ -345,10 +238,7 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 })}
               </View>
 
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={() => showDeleteConfirm(onDelete)}
-              >
+              <TouchableOpacity style={styles.deleteButton} onPress={() => showDeleteConfirm(onDelete)}>
                 <Text style={styles.buttonText}>科目を削除</Text>
               </TouchableOpacity>
 
@@ -387,9 +277,6 @@ const styles = StyleSheet.create({
   stepperRow: { flexDirection: 'row', justifyContent: 'space-between', width: 90 },
   stepperCircle: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', width: 38, height: 38, borderRadius: 19, borderWidth: 1, borderColor: '#ccc' },
   stepperSign: { fontSize: 22, fontWeight: '700', color: '#333' },
-  statItem: { alignItems: 'center' },
-  statLabel: { fontSize: 14, color: '#666', marginBottom: 5 },
-  statValue: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#e8f5e9', borderRadius: 5, padding: 10, marginBottom: 15 },
   progressLeft: { fontSize: 16, fontWeight: 'bold', color: '#333' },
   progressRight: { fontSize: 16, fontWeight: 'bold', color: '#4caf50' },

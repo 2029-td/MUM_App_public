@@ -24,6 +24,7 @@ import { CourseSelectionModal } from './components/Timetable/CourseSelectionModa
 import { TemplateModal } from './components/Timetable/TemplateModal';
 import { ExamList, ExamModal } from './components/Exam';
 import SearchCourseBox from './components/Timetable/SearchCourseBox';
+import { colorPalette } from './constants'; 
 
 // サービス
 import { storageService } from './services/storage';
@@ -35,6 +36,32 @@ import type { CourseData, Subject, Exam, CalendarEvent } from './types';
 import { useMemo } from 'react';
 
 export default function Page() {
+  // 既存 timetable から、同じ“連結っぽい”授業で使っている色があれば再利用
+  const findExistingColor = (
+    timetable: any,
+    day: string,
+    name?: string,
+    professor?: string
+  ): string | undefined => {
+    const rows = timetable?.[day] || {};
+    for (const p of Object.keys(rows)) {
+      const s = rows[p];
+      if (!s) continue;
+      if (s.name === name && (s.professor || '') === (professor || '') && s.color) {
+        return s.color;
+      }
+    }
+    return undefined;
+  };
+
+  // 決定論的カラー（seed を colorPalette に写像）
+  const pickColorBySeed = (seed: string): string => {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0;
+    const idx = Math.abs(h) % colorPalette.length;
+    return colorPalette[idx];
+  };
+
   // カスタムフックの初期化
   const {
     templates,
@@ -250,14 +277,23 @@ export default function Page() {
                 onSelect={async (course: CourseData) => {
                   const templateId = getCurrentTemplate()?.id;
                   if (!templateId) return;
+
                   const periods = course.時限.split(',').map(p => p.trim());
+
+                  // ★ 色を決める
+                  const timetable = getCurrentTemplate()?.timetable || {};
+                  const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
+                  const decidedColor =
+                    findExistingColor(timetable, course.曜日, course.科目名, course.教員)
+                    ?? pickColorBySeed(seed);
+
                   const subject: Subject = {
-                    id: `${course.曜日}-${periods[0]}-${course.科目名}`, // 先頭時限を使う
+                    id: `${course.曜日}-${periods[0]}-${course.科目名}`,
                     name: course.科目名,
                     professor: course.教員,
                     credits: course.単位,
                     term: course.履修期,
-                    color: '',
+                    color: decidedColor,           // ← ここだけ追加
                     notifications: true,
                     room: course.教室 ?? '',
                     attendance: 0,
@@ -266,12 +302,13 @@ export default function Page() {
                     totalClasses: 0,
                     note: course.備考 ?? '',
                   };
+
                   await updateSubjectMulti(templateId, course.曜日, periods, subject);
                   const updatedTemplates = await storageService.getTemplates();
                   await setTemplates(updatedTemplates);
-                  setQuery(''); // 「登録する」ボタンを押すと検索バーをクリア
+                  setQuery('');
                   setIsCourseModalVisible(false);
-                }}          
+                }}
               />
 
               {/* 時間割グリッド */}
@@ -331,14 +368,23 @@ export default function Page() {
             onSelect={async (course: CourseData) => {
               const templateId = getCurrentTemplate()?.id;
               if (!templateId) return;
-            
+
+              const periods = course.時限.split(',').map(p => p.trim());
+
+              // ★ 色を決める
+              const timetable = getCurrentTemplate()?.timetable || {};
+              const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
+              const decidedColor =
+                findExistingColor(timetable, course.曜日, course.科目名, course.教員)
+                ?? pickColorBySeed(seed);
+
               const subject: Subject = {
-                id: `${selectedDay}-${course.時限}-${course.科目名}`,
+                id: `${selectedDay}-${periods[0]}-${course.科目名}`,
                 name: course.科目名,
                 professor: course.教員,
                 credits: course.単位,
                 term: course.履修期,
-                color: '',
+                color: decidedColor,           // ← ここだけ追加
                 notifications: true,
                 room: course.教室 ?? '',
                 attendance: 0,
@@ -347,13 +393,12 @@ export default function Page() {
                 totalClasses: 0,
                 note: course.備考 ?? '',
               };
-            
-              const periods = course.時限.split(',').map(p => p.trim());
+
               await updateSubjectMulti(templateId, course.曜日, periods, subject);
               const updatedTemplates = await storageService.getTemplates();
               await setTemplates(updatedTemplates);
               setIsCourseModalVisible(false);
-            }}            
+            }}        
           />
 
           {/* モーダル類 */}
@@ -364,12 +409,63 @@ export default function Page() {
             // ← 親側の合算上限チェック付きロジックを渡す
             onUpdate={handleAttendanceUpdate}
             onDelete={async () => {
-              const templateId = getCurrentTemplate()?.id;
+              const template = getCurrentTemplate();
+              const templateId = template?.id;
+              if (!templateId) return;
+
+              // 1) 最新を読み直す（保存競合・古い参照を避ける）
+              const templates = await storageService.getTemplates();
+              const idx = templates.findIndex(t => t.id === templateId);
+              if (idx < 0) return;
+
               const day = selectedDay;
               const period = String(selectedPeriod);
-              await deleteSubject(templateId, day, period);
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
+
+              // timetable をミュータブルに扱うためコピー（必要に応じて浅いコピーでOK）
+              const tt = { ...(templates[idx].timetable || {}) };
+              tt[day] = { ...(tt[day] || {}) };
+
+              const target = tt[day]?.[period];
+              if (!target) return;
+
+              // 2) 同一授業のぜんぶのコマを特定
+              //    優先: linkGroupId => 同日 linkedPeriods => 同日 name/professor 一致 & 連続（+当該period）
+              const keysToDelete = new Set<string>([period]);
+
+              if (target.linkGroupId) {
+                for (const d of Object.keys(tt)) {
+                  for (const p of Object.keys(tt[d] || {})) {
+                    if (tt[d][p]?.linkGroupId === target.linkGroupId) keysToDelete.add(p);
+                  }
+                }
+              } else if (Array.isArray(target.linkedPeriods) && target.linkedPeriods.length) {
+                for (const p of target.linkedPeriods) keysToDelete.add(String(p));
+              } else {
+                // 後方互換: 同曜日で name/professor が同じ連続コマを推定
+                const same = Object.keys(tt[day] || {}).filter(p => {
+                  if (p === period) return true;
+                  const s = tt[day][p];
+                  return s?.name === target.name && (s?.professor || '') === (target.professor || '');
+                });
+                same.forEach(p => keysToDelete.add(p));
+              }
+
+              // 3) まとめて削除（選択したコマ自身も必ず含める）
+              for (const k of keysToDelete) {
+                if (tt[day]?.[k]) delete tt[day][k];
+              }
+
+              // 空オブジェクト掃除（任意）
+              if (tt[day] && Object.keys(tt[day]).length === 0) delete tt[day];
+
+              // 4) 一度だけ保存 → 反映
+              templates[idx] = { ...templates[idx], timetable: tt };
+              await storageService.saveTemplates(templates);          // ← storageService に save がある前提
+              const refreshed = await storageService.getTemplates();  // 再読み込みで確実に同期
+              await setTemplates(refreshed);
+
+              // 選択状態クリア & モーダル閉じる
+              setSelectedSubject(null);
               setIsAttendanceModalVisible(false);
             }}
             // ← 親側の保存ロジックに統一
@@ -398,6 +494,35 @@ export default function Page() {
             }}
             onDateChange={(date) => setExamDate(date)}
             onDatePickerVisibilityChange={(visible) => setShowDatePicker(visible)}
+          />
+
+          <TemplateModal
+            visible={isTemplateModalVisible}
+            templates={templates}
+            currentTemplateId={currentTemplateId}
+            onClose={() => setIsTemplateModalVisible(false)}
+            onTemplateSelect={async (id) => {
+              await setCurrentTemplateId(id);
+              await storageService.saveCurrentTemplateId(id);
+              // 必要ならここで最新取得して反映
+              const updated = await storageService.getTemplates();
+              await setTemplates(updated);
+            }}
+            onTemplateAdd={async (name) => {
+              await addTemplate(name, {});
+              const updated = await storageService.getTemplates();
+              await setTemplates(updated);
+            }}
+            onTemplateDelete={async (id) => {
+              await deleteTemplate(id);
+              const updated = await storageService.getTemplates();
+              await setTemplates(updated);
+            }}
+            onTemplatesUpdate={async () => {
+              // ← ここをラップして引数なしにする
+              const updated = await storageService.getTemplates();
+              await setTemplates(updated);
+            }}
           />
         </LinearGradient>
       </SafeAreaView>
