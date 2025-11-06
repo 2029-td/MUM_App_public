@@ -57,7 +57,6 @@ const App: React.FC = () => {
     console.log('Device Height:', SCREEN_HEIGHT);
     console.log('Pixel Ratio:', PixelRatio.get());
     console.log('Platform:', Platform.OS);
-    console.log('Map Items:', mapItems);
     console.log('Image Width:', imageWidth);
     console.log('Image Height:', imageHeight);
   }, []);
@@ -421,7 +420,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    elevation: 5,
+    elevation: 10,
+    zIndex: 100,
   },
   popupText: {
     flex: 1,
@@ -471,7 +471,9 @@ const styles = StyleSheet.create({
   filterButton: {
     position: 'absolute',
     top: 500,
-    left: 20, 
+    left: 20,
+    zIndex: 1,
+    elevation: 2,
   },
   filterIcon: {
     width: 50,
