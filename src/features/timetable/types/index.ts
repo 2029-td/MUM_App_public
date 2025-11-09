@@ -1,9 +1,15 @@
+// CSVファイルの「履修期」値として保持する型
+export type Term = '前期' | '後期' | '通年' | '';
+
+// 画面の学期フィルタ用（ユーザーが選択するのは前期/後期のみ）
+export type ActiveTerm = '前期' | '後期';
+
 // CSVファイルから取得する科目データの型
 export interface CourseData {
   科目名: string;
   教員: string;
   単位: number;
-  履修期: string;
+  履修期: Term;
   曜日: string;
   時限: string;
   曜日時限?: string;
@@ -17,18 +23,18 @@ export interface Subject {
   name: string;         // 科目名
   professor: string;    // 教員
   credits: number;      // 単位数
-  term: string;        // 履修期
-  color: string;       // 表示色
+  term: Term;           // 履修期（CSV準拠: 前期/後期/通年）
+  color: string;        // 表示色
   notifications: boolean;
-  room?: string;       // 教室
+  room?: string;        // 教室
   attendance: number;   // 出席数
-  absence: number;     // 欠席数
-  late: number;        // 遅刻数
+  absence: number;      // 欠席数
+  late: number;         // 遅刻数
   totalClasses: number; // 総授業回数
   nextClassDate?: string;
   note?: string;
-  linkGroupId?: string; // 連続コマのグルーピングID（同一授業で共通)
-  linkedPeriods?: number[]; // 同一曜日で連続するコマ番号の配列（例: [3,4]
+  linkGroupId?: string;     // 連続コマのグルーピングID
+  linkedPeriods?: number[]; // 同一曜日で連続するコマ番号の配列（例: [3,4]）
 }
 
 // 時間割の型（曜日と時限で科目を管理）
@@ -53,7 +59,7 @@ export interface Exam {
   subjectId: string;    // 関連する科目のID
   date: string;         // 試験日
   location: string;     // 試験会場
-  note?: string;        // メモ（オプション）
+  note?: string;        // メモ
 }
 
 // 授業時間の型
@@ -89,6 +95,5 @@ export interface CalendarEvent {
   summary: string;
   start: { dateTime?: string; date?: string; };
   end:   { dateTime?: string; date?: string; };
-  calendarId: string; // カレンダーのID
-  // 他に必要なフィールドがあれば追加
+  calendarId: string;
 }

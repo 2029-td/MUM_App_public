@@ -9,8 +9,9 @@ import {
   StyleSheet,
   Alert,
 } from 'react-native';
+import { Chip } from 'react-native-paper';
 import { storageService } from '../../services/storage';
-import type { TimetableTemplate } from '../../types';
+import type { TimetableTemplate, ActiveTerm } from '../../types';
 import { TemplateShareModal } from './TemplateShareModal';
 
 interface TemplateModalProps {
@@ -18,10 +19,13 @@ interface TemplateModalProps {
   templates: TimetableTemplate[];
   currentTemplateId: string;
   onClose: () => void;
-  onTemplateSelect: (id: string) => void;
-  onTemplateAdd: (name: string) => void;
-  onTemplateDelete: (id: string) => void;
+  onTemplateSelect: (id: string) => void | Promise<void>;
+  onTemplateAdd: (name: string) => void | Promise<void>;
+  onTemplateDelete: (id: string) => void | Promise<void>;
   onTemplatesUpdate: () => Promise<void>;
+  // 学期切替（前期/後期のみ）
+  activeTerm: ActiveTerm;
+  onChangeTerm: (t: ActiveTerm) => void | Promise<void>;
 }
 
 export const TemplateModal: React.FC<TemplateModalProps> = ({
@@ -33,6 +37,8 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
   onTemplateAdd,
   onTemplateDelete,
   onTemplatesUpdate,
+  activeTerm,
+  onChangeTerm,
 }) => {
   const [newTemplateName, setNewTemplateName] = useState('');
   const [isShareModalVisible, setIsShareModalVisible] = useState(false);
@@ -42,10 +48,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
   } | null>(null);
 
   const handleShare = (template: TimetableTemplate) => {
-    setSelectedTemplateForShare({
-      id: template.id,
-      name: template.name,
-    });
+    setSelectedTemplateForShare({ id: template.id, name: template.name });
     setIsShareModalVisible(true);
   };
 
@@ -55,11 +58,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
       `テンプレート "${templateName}" を削除してもよろしいですか？`,
       [
         { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: () => onTemplateDelete(templateId),
-        },
+        { text: '削除', style: 'destructive', onPress: () => onTemplateDelete(templateId) },
       ]
     );
   };
@@ -73,12 +72,11 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
 
   const handleImportSuccess = async () => {
     try {
-      // テンプレートを再読み込み
       await onTemplatesUpdate();
-      // 現在のテンプレートを再設定
       const updatedTemplates = await storageService.getTemplates();
       if (updatedTemplates.length > 0) {
-        const currentTemplate = updatedTemplates.find(t => t.id === currentTemplateId) || updatedTemplates[0];
+        const currentTemplate =
+          updatedTemplates.find(t => t.id === currentTemplateId) || updatedTemplates[0];
         onTemplateSelect(currentTemplate.id);
       }
     } catch (error) {
@@ -88,15 +86,30 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>時間割テンプレート管理</Text>
+
+          {/* 学期切替（前期/後期のみ） */}
+          <View style={styles.termChipsRow}>
+            <Chip
+              mode="flat"
+              selected={activeTerm === '前期'}
+              onPress={() => onChangeTerm('前期')}
+              style={[styles.termChip, activeTerm === '前期' && styles.termChipSelected]}
+            >
+              前期
+            </Chip>
+            <Chip
+              mode="flat"
+              selected={activeTerm === '後期'}
+              onPress={() => onChangeTerm('後期')}
+              style={[styles.termChip, activeTerm === '後期' && styles.termChipSelected]}
+            >
+              後期
+            </Chip>
+          </View>
 
           <ScrollView style={styles.templateList}>
             {templates.map(template => (
@@ -116,10 +129,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
                       <Text style={styles.buttonText}>使用する</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={() => handleShare(template)}
-                  >
+                  <TouchableOpacity style={styles.shareButton} onPress={() => handleShare(template)}>
                     <Text style={styles.buttonText}>共有</Text>
                   </TouchableOpacity>
                   {template.id !== 'default' && (
@@ -146,7 +156,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
             <TouchableOpacity
               style={[
                 styles.addTemplateButton,
-                !newTemplateName.trim() && styles.addTemplateButtonDisabled
+                !newTemplateName.trim() && styles.addTemplateButtonDisabled,
               ]}
               onPress={handleAddTemplate}
               disabled={!newTemplateName.trim()}
@@ -155,10 +165,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-          >
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
             <Text style={styles.buttonText}>閉じる</Text>
           </TouchableOpacity>
         </View>
@@ -181,104 +188,26 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 20,
-    width: '90%',
-    maxHeight: '80%',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#333',
-  },
-  templateList: {
-    maxHeight: 300,
-    marginBottom: 15,
-  },
-  templateItem: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  templateInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  templateName: {
-    fontSize: 16,
-    flex: 1,
-    color: '#333',
-  },
-  currentLabel: {
-    fontSize: 12,
-    color: '#4CAF50',
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  templateButtons: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-  },
-  selectButton: {
-    backgroundColor: '#2196F3',
-    padding: 8,
-    borderRadius: 5,
-  },
-  shareButton: {
-    backgroundColor: '#4CAF50',
-    padding: 8,
-    borderRadius: 5,
-  },
-  deleteButton: {
-    backgroundColor: '#F44336',
-    padding: 8,
-    borderRadius: 5,
-  },
-  addTemplateContainer: {
-    flexDirection: 'row',
-    marginBottom: 15,
-  },
-  templateInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 5,
-    padding: 10,
-    marginRight: 10,
-    fontSize: 16,
-    color: '#333',
-  },
-  addTemplateButton: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    justifyContent: 'center',
-    minWidth: 80,
-  },
-  addTemplateButtonDisabled: {
-    backgroundColor: '#ccc',
-  },
-  closeButton: {
-    backgroundColor: '#2196F3',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  modalContent: { backgroundColor: 'white', borderRadius: 10, padding: 20, width: '90%', maxHeight: '80%' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, color: '#333' },
+  termChipsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
+  termChip: { borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f7f7f7' },
+  termChipSelected: { backgroundColor: '#e0f2f1', borderColor: '#26a69a' },
+  templateList: { maxHeight: 300, marginBottom: 15 },
+  templateItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  templateInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  templateName: { fontSize: 16, flex: 1, color: '#333' },
+  currentLabel: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold', marginLeft: 10 },
+  templateButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
+  selectButton: { backgroundColor: '#2196F3', padding: 8, borderRadius: 5 },
+  shareButton: { backgroundColor: '#4CAF50', padding: 8, borderRadius: 5 },
+  deleteButton: { backgroundColor: '#F44336', padding: 8, borderRadius: 5 },
+  addTemplateContainer: { flexDirection: 'row', marginBottom: 15 },
+  templateInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 10, marginRight: 10, fontSize: 16, color: '#333' },
+  addTemplateButton: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, justifyContent: 'center', minWidth: 80 },
+  addTemplateButtonDisabled: { backgroundColor: '#ccc' },
+  closeButton: { backgroundColor: '#2196F3', padding: 10, borderRadius: 5, alignItems: 'center' },
+  buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
 });

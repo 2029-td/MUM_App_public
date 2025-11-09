@@ -4,6 +4,7 @@ export const STORAGE_KEYS = {
     ATTENDANCE_DATA: '@attendance_data',
     EXAMS: '@exams_data',
     THEME: '@theme_id',
+    ACTIVE_TERM: 'ACTIVE_TERM',
   } as const;
   
   export const daysOfWeek = ['月', '火', '水', '木', '金', '土'] as const;
