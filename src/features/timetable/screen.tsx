@@ -122,6 +122,9 @@ export default function Page() {
   const [isTemplateModalVisible, setIsTemplateModalVisible] = useState<boolean>(false);
   const [isExamModalVisible, setIsExamModalVisible] = useState<boolean>(false);
 
+  // TemplateModal 用の activeTerm 状態（型は any で最小修正）
+  const [activeTerm, setActiveTerm] = useState<any>('all');
+
   // 検索機能
   const { query, setQuery, results } = useCourseSearch(courseData, selectedDay, selectedPeriod);
   
@@ -177,7 +180,7 @@ export default function Page() {
     }
   };
 
-    // ✅ モーダルからの更新を保存
+  // ✅ モーダルからの更新を保存
   const handleSubjectUpdate = useCallback(async (updated: Subject) => {
     const templateId = getCurrentTemplate()?.id;
     if (!templateId) return;
@@ -329,20 +332,20 @@ export default function Page() {
               />
 
               <View style={styles.examSection}>
-              <ExamList
-                exams={exams}
-                subjects={getAllRegisteredSubjects()}
-                theme={getCurrentTheme()}
-                onExamPress={(exam) => {
-                  setSelectedExam(exam);
-                  setIsExamModalVisible(true); // 編集用モーダルを開く
-                }}
-                onAddPress={() => {
-                  setSelectedExam(null); // 新規登録モード
-                  setExamDate(new Date()); // 初期日付設定（必要なら）
-                  setIsExamModalVisible(true); // ✅ モーダル表示
-                }}
-              />
+                <ExamList
+                  exams={exams}
+                  subjects={getAllRegisteredSubjects()}
+                  theme={getCurrentTheme()}
+                  onExamPress={(exam) => {
+                    setSelectedExam(exam);
+                    setIsExamModalVisible(true); // 編集用モーダルを開く
+                  }}
+                  onAddPress={() => {
+                    setSelectedExam(null); // 新規登録モード
+                    setExamDate(new Date()); // 初期日付設定（必要なら）
+                    setIsExamModalVisible(true); // ✅ モーダル表示
+                  }}
+                />
               </View>
 
                {/* Google カレンダー「今後の予定」セクション */}
@@ -460,11 +463,11 @@ export default function Page() {
 
               // 4) 一度だけ保存 → 反映
               templates[idx] = { ...templates[idx], timetable: tt };
-              await storageService.saveTemplates(templates);          // ← storageService に save がある前提
-              const refreshed = await storageService.getTemplates();  // 再読み込みで確実に同期
+              await storageService.saveTemplates(templates);
+              const refreshed = await storageService.getTemplates();
               await setTemplates(refreshed);
 
-              // 選択状態クリア & モーダル閉じる
+              // 削除完了後、両方のモーダルを確実に閉じる
               setSelectedSubject(null);
               setIsAttendanceModalVisible(false);
             }}
@@ -500,6 +503,8 @@ export default function Page() {
             visible={isTemplateModalVisible}
             templates={templates}
             currentTemplateId={currentTemplateId}
+            activeTerm={activeTerm}
+            onChangeTerm={setActiveTerm}
             onClose={() => setIsTemplateModalVisible(false)}
             onTemplateSelect={async (id) => {
               await setCurrentTemplateId(id);

@@ -1,37 +1,43 @@
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
-import type { CourseData } from '../types';
+import type { CourseData, Term } from '../types';
+
+// 表記ゆれを正規化して Term 型で返す
+const normalizeTerm = (raw?: string): Term => {
+  if (!raw) return '';
+  const s = raw.trim();
+  if (s.includes('年間')) return '通年';
+  if (s.includes('夏季集中')) return '前期';
+  if (s.includes('春季集中') || s.includes('後期集中')) return '後期';
+  if (s.includes('前期')) return '前期';
+  if (s.includes('後期')) return '後期';
+  return '';
+};
 
 export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
   const asset = Asset.fromModule(require('assets/data/timetable.csv'));
   await asset.downloadAsync();
 
-  const csv = await FileSystem.readAsStringAsync(asset.localUri!, {
-    encoding: 'utf8',
-  });
+  const csv = await FileSystem.readAsStringAsync(asset.localUri!, { encoding: 'utf8' });
 
-  const raw = Papa.parse<string[]>(csv, {
-    header: false,
-    skipEmptyLines: true,
-  }).data as string[][];
-
+  const raw = Papa.parse<string[]>(csv, { header: false, skipEmptyLines: true }).data as string[][];
   if (raw.length < 2) return [];
 
   const header = raw[0].map(cell => cell.trim());
   const rows = raw.slice(1);
 
-  const subjectIdx = header.findIndex(h => h === '科目名');
-  const dayIdx = header.findIndex(h => h === '曜日');
-  const termIdx = header.findIndex(h => h === '履修期');
-  const noteIdx = header.findIndex(h => h === '特記事項');
+  const findIdx = (name: string) => header.findIndex(h => h === name);
 
-  const periodIndexes = [1, 2, 3, 4, 5, 6].map(p =>
-    header.findIndex(h => h === p.toString())
-  );
+  const termIdx = findIdx('履修期名') > -1 ? findIdx('履修期名') : findIdx('履修期');
+  const subjectIdx = findIdx('科目名');
+  const dayIdx = findIdx('曜日');
+  const noteIdx = findIdx('特記事項');
+  const creditIdx = findIdx('単位');
 
-  const teacherIndexes = header.map((h, i) => h === '教員' ? i : -1).filter(i => i >= 0);
-  const roomIndexes = header.map((h, i) => h === '教室' ? i : -1).filter(i => i >= 0);
+  const periodIndexes = [1, 2, 3, 4, 5, 6].map(p => findIdx(p.toString()));
+  const teacherIndexes = header.map((h, i) => (h === '教員' ? i : -1)).filter(i => i >= 0);
+  const roomIndexes    = header.map((h, i) => (h === '教室' ? i : -1)).filter(i => i >= 0);
 
   const courses: CourseData[] = [];
 
@@ -41,20 +47,24 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
     if (!subject || !day) continue;
 
     const teachers = teacherIndexes.map(i => (row[i] ?? '').trim()).filter(Boolean).join('、');
-    const rooms = roomIndexes.map(i => (row[i] ?? '').trim()).filter(Boolean).join('、');
-    const term = row[termIdx]?.trim() || '';
+    const rooms    = roomIndexes.map(i => (row[i] ?? '').trim()).filter(Boolean).join('、');
+
+    const termNorm: Term = normalizeTerm(row[termIdx]?.trim());
     const note = row[noteIdx]?.trim() || '';
 
     const periods: string[] = [];
-
     periodIndexes.forEach((idx, i) => {
-      const mark = row[idx]?.trim();
-      if (mark === '○') {
-        periods.push((i + 1).toString());
-      }
+      const mark = (idx >= 0 ? row[idx] : '')?.trim();
+      if (mark === '○') periods.push(String(i + 1));
     });
-
     if (periods.length === 0) continue;
+
+    let credit = 0;
+    if (creditIdx >= 0) {
+      const v = (row[creditIdx] ?? '').toString().trim();
+      const n = Number(v);
+      credit = Number.isFinite(n) ? n : 0;
+    }
 
     courses.push({
       科目名: subject,
@@ -62,8 +72,8 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
       教室: rooms,
       曜日: day,
       時限: periods.join(','), // 例: "3,4"
-      履修期: term,
-      単位: 0,
+      履修期: termNorm,
+      単位: credit,
       備考: note,
     });
   }
