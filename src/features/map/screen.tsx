@@ -1,8 +1,12 @@
+// src/features/map/screen.tsx
+
 import React, { useState, useEffect } from 'react';
 import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Platform, PixelRatio, TextInput } from 'react-native';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import Icon from 'react-native-vector-icons/Ionicons';
+
+// 各種データ読み込み
 import { MapItem, mapItems } from './constants/mapData';
 import { loadClassesData, ClassInfo } from './constants/classesData';
 import { labData } from './constants/labData';
@@ -10,13 +14,14 @@ import { vendingMachineLocations } from './constants/vendingMachineLocations';
 import MapSvg from './assets/images/map.svg';
 import type { ViewStyle } from 'react-native';
 
-/** 元画像のピクセルサイズ（SVG の座標系と一致させる） */
+// 元画像のピクセルサイズ（SVG の座標系と一致させる）
 const IMAGE_WIDTH = 1080;
 const IMAGE_HEIGHT = 1920;
-/** 端末の表示領域サイズ */
+
+// 端末の表示領域サイズ
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
-/** ズーム境界を定数化 */
+// ズーム境界を定数化
 const MIN_SCALE = 1; // 最小倍率：等倍（初期）
 const MAX_SCALE = 5; // 最大倍率
 const EPS = 1e-4; // 浮動小数点の誤差吸収
@@ -54,6 +59,8 @@ const App: React.FC = () => {
 
   // JS 側にも現在倍率を同期（UIのボタン無効化などで使用）
   const [jsScale, setJsScale] = useState(1);
+  const jsScaleRef = React.useRef(1);
+  useEffect(() => { jsScaleRef.current = jsScale; }, [jsScale]);
   const syncScaleToJS = (v: number) => setJsScale(v);
 
   // 表示コンテナの実サイズ（onLayoutで取得しUIスレッドに渡す）
@@ -227,6 +234,98 @@ const App: React.FC = () => {
   // 自動販売機フィルターをクリックしたときの処理
   const toggleVendingMachines = () => setShowVendingMachines(v => !v);
 
+  // 拡大縮小ボタン
+  const canZoomOut = jsScale > MIN_SCALE + EPS;
+  const canZoomIn = jsScale < MAX_SCALE - EPS;
+
+  const clampTranslate = (s: number, tx: number, ty: number) => {
+    const maxX = Math.max(0, (imageWidth  * s - containerW.value) / 2);
+    const maxY = Math.max(0, (imageHeight * s - containerH.value) / 2);
+    return {
+      tx: clamp(tx, -maxX, maxX),
+      ty: clamp(ty, -maxY, maxY),
+    };
+  };
+  
+  // 画面中央固定でズーム（ボタン用）
+  const zoomAroundCenterTo = (s1: number) => {
+    const s0 = scale.value;
+    const Fx = containerW.value / 2;
+    const Fy = containerH.value / 2;
+  
+    const r  = s1 / s0;
+    const tx = Fx - r * (Fx - translateX.value);
+    const ty = Fy - r * (Fy - translateY.value);
+  
+    const { tx: clampedX, ty: clampedY } = clampTranslate(s1, tx, ty);
+    translateX.value = withTiming(clampedX, { duration: 120 });
+    translateY.value = withTiming(clampedY, { duration: 120 });
+    scale.value      = withTiming(s1, { duration: 120 });
+    setJsScale(s1);
+  };
+
+  // ズーム倍率
+  const ZOOM_STEP = 0.15;
+
+  // 単発ズーム（＋）
+  const increaseScale = () => {
+    setJsScale(prev => {
+      const next = Math.min(prev + ZOOM_STEP, MAX_SCALE);
+      if (next === prev) return prev;
+      zoomAroundCenterTo(next);
+      return next;
+    });
+  };
+
+  // 単発ズーム（−）
+  const decreaseScale = () => {
+    setJsScale(prev => {
+      const next = Math.max(prev - ZOOM_STEP, MIN_SCALE);
+      if (next === prev) return prev;
+
+      if (next <= MIN_SCALE + EPS) {
+        // 等倍に戻すときは中央→原点へスムーズに
+        scale.value = withTiming(1, { duration: 120 });
+        translateX.value = withTiming(0, { duration: 120 });
+        translateY.value = withTiming(0, { duration: 120 });
+      } else {
+        zoomAroundCenterTo(next);
+      }
+      return next;
+    });
+  };
+
+  // ズームの長押し連打用タイマー(ID)を保持する参照
+  //   - setInterval が返すIDを保持して、複数起動を防止＆後で確実に停止できるようにする
+  //   - null のときは「稼働していない」状態を表す
+  const zoomTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // 長押しによる連続ズーム制御
+  const startContinuousZoom = (direction: 'in' | 'out') => {
+    if (zoomTimerRef.current) return; // 多重起動防止
+    const tick = () => {
+      if (direction === 'in') {
+        if (jsScaleRef.current >= MAX_SCALE - EPS) { stopContinuousZoom(); return; }
+        increaseScale();
+      } else {
+        if (jsScaleRef.current <= MIN_SCALE + EPS) { stopContinuousZoom(); return; }
+        decreaseScale();
+      }
+    };
+    tick(); // ★ 初回を即時実行（ここがポイント）
+    zoomTimerRef.current = setInterval(tick, 120);
+  };
+
+  // 連続ズームを停止する関数
+  //   - 稼働中の setInterval を clearInterval で停止
+  //   - 参照を null に戻して次回の起動を許可（多重起動を防ぐためのリセット）
+  const stopContinuousZoom = () => {
+    if (zoomTimerRef.current) {
+      clearInterval(zoomTimerRef.current); // タイマー停止
+      zoomTimerRef.current = null; // 参照をクリア
+    }
+  };
+
   // リセット関数
   const reset = () => {
     setSelectedItem(null); // 建物の選択状態をリセット
@@ -234,27 +333,6 @@ const App: React.FC = () => {
     setSelectedLabItem(null); // 研究室検索結果の選択状態をリセット
     setClassInfo(null); // 授業情報をリセット
     setLabInfo(null); // 研究室情報をリセット
-  };
-
-  // ---- 拡大縮小ボタン（共通の挙動に統一）----
-  const canZoomOut = jsScale > MIN_SCALE + EPS;
-  const canZoomIn = jsScale < MAX_SCALE - EPS;
-
-  const increaseScale = () => {
-    const next = Math.min(jsScale + 0.1, MAX_SCALE);
-    scale.value = withTiming(next, { duration: 120 });
-    setJsScale(next);
-  };
-  
-  const decreaseScale = () => {
-    const next = Math.max(jsScale - 0.1, MIN_SCALE);
-    scale.value = withTiming(next, { duration: 120 });
-    setJsScale(next);
-    if (next <= MIN_SCALE + EPS) {
-      // 等倍になったら原点へ
-      translateX.value = withTiming(0, { duration: 120 });
-      translateY.value = withTiming(0, { duration: 120 });
-    }
   };
 
   return (
@@ -392,9 +470,11 @@ const App: React.FC = () => {
       <View style={styles.zoomButtonsContainer}>
         {/* 拡大ボタン */}
         <TouchableOpacity
+          onLongPress={() => startContinuousZoom('in')}
+          delayLongPress={150} 
+          onPressOut={stopContinuousZoom}
           onPress={increaseScale}
           disabled={!canZoomIn} // ← マップ最大時は押せない
-          accessibilityState={{ disabled: !canZoomIn }}
           style={[styles.zoomButton, !canZoomIn && styles.zoomButtonDisabled]}
         >
           <Text style={styles.zoomLabel}>＋</Text>
@@ -402,9 +482,11 @@ const App: React.FC = () => {
 
         {/* 縮小ボタン */}
         <TouchableOpacity
+          onLongPress={() => startContinuousZoom('out')}
+          delayLongPress={150}
+          onPressOut={stopContinuousZoom}
           onPress={decreaseScale}
           disabled={!canZoomOut} // ← マップ最小時（初期画面）は押せない
-          accessibilityState={{ disabled: !canZoomOut }}　// ← アクセシビリティ連動
           style={[styles.zoomButton, !canZoomOut && styles.zoomButtonDisabled]}
         >
           <Text style={styles.zoomLabel}>−</Text>
