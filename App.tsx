@@ -54,11 +54,20 @@ const AppShell = () => {
     light:   theme.backgroundColor,
   };
   const navBg = NAV_BG_BY_THEME[currentThemeId] ?? NAV_BG_BY_THEME.default;
+
   // 文字色とタブのアクティブ／非アクティブ色
   const isDarkishNav = currentThemeId === 'default' || currentThemeId === 'dark';
+
+  // ヘッダー文字色
   const navFg        = isDarkishNav ? '#FFFFFF' : theme.textColor; // lightは濃い文字
+
+  // アクティブタブは常に明るい白で強調
   const tabActive    = navFg;
-  const tabInactive  = isDarkishNav ? 'rgba(255,255,255,0.7)' : 'rgba(44,62,80,0.6)';
+
+  // 非アクティブタブはより暗く（薄く）してコントラストを強くする
+  const tabInactive  = isDarkishNav 
+    ? 'rgba(255,255,255,0.35)' // dark系: 薄い白
+    : 'rgba(44,62,80,0.35)'; // light系: 薄い黒
 
   return (
     <PaperProvider theme={paperTheme}>
@@ -115,7 +124,7 @@ const AppShell = () => {
             <Tab.Screen
               name="settings"
               component={SettingsScreen}
-              options={{ title: '設定' }}
+              options={{ title: 'その他' }}
             />
           </Tab.Navigator>
         </NavigationContainer>
