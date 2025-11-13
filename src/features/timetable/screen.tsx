@@ -265,13 +265,6 @@ export default function Page() {
                 </View>
               </View>
 
-              {/* 現在のテンプレート情報 */}
-              <View style={styles.currentTemplateInfo}>
-                <Text style={[styles.currentTemplateName, { color: getCurrentTheme().textColor }]}>
-                  現在のテンプレート: {getCurrentTemplate()?.name || '未設定'}
-                </Text>
-              </View>
-
               {/* 検索バー */}
               <SearchCourseBox
                 value={query}
@@ -536,7 +529,9 @@ export default function Page() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { 
+    flex: 1 
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -572,7 +567,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   headerButtons: {
@@ -583,15 +578,6 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 5,
     marginRight: 10,
-  },
-  currentTemplateInfo: {
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 10,
-  },
-  currentTemplateName: {
-    fontSize: 16,
-    textAlign: 'center',
   },
   examSection: {
     marginTop: 20,
@@ -608,7 +594,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   calendarTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
   },
