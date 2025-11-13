@@ -1,5 +1,5 @@
 // src/features/timetable/screen.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import useGoogleAuth from '~/hooks/useGoogleAuth';
 import { Chip } from 'react-native-paper';
 // カレンダー月表示用
@@ -17,7 +17,6 @@ import { useCourseSearch } from './hooks/useCourseSearch';
 import { useAppTheme } from '~/hooks/useAppTheme';
 import { useStyles } from '~/styles';
 
-// コンポーネント
 import { TimetableGrid } from './components/Timetable/TimetableGrid';
 import { AttendanceModal } from './components/Timetable/AttendanceModal';
 import { CourseSelectionModal } from './components/Timetable/CourseSelectionModal';
@@ -31,9 +30,7 @@ import { storageService } from './services/storage';
 import { notificationService } from './services/notifications';
 import { loadTimetableFromCSV } from './services/timetableCsvParser';
 
-// 型とconstantsとutils
-import type { CourseData, Subject, Exam, CalendarEvent } from './types';
-import { useMemo } from 'react';
+import type { CourseData, Subject, Exam, ActiveTerm } from './types';
 
 export default function Page() {
   // 既存 timetable から、同じ“連結っぽい”授業で使っている色があれば再利用
@@ -89,70 +86,41 @@ export default function Page() {
     getAllRegisteredSubjects,
   } = useExams({ currentTemplateId, getCurrentTemplate });
 
-  // Google認証
-  const { signIn, accessToken, loading: authLoading } = useGoogleAuth();
-
-  // Google カレンダーイベント取得（pull-to-refresh hookに統合）
+  const { accessToken } = useGoogleAuth();
   const { events, loading: calLoading, error: calError, refetch } = useCalendarEvents();
   const { refreshing, onRefresh } = usePullToRefreshCalendar(refetch);
 
-  // Googleログイン後にカレンダー再取得
-  useEffect(() => {
-    if (accessToken) {
-      refetch();
-    }
-  }, [accessToken]);
+  useEffect(() => { if (accessToken) refetch(); }, [accessToken]);
 
-  // 状態管理
+  // === 学期（前期/後期のみ） ===
+  const [activeTerm, setActiveTerm] = useState<ActiveTerm>('前期');
+
+  // === 状態 ===
   const [courseData, setCourseData] = useState<CourseData[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<Subject | null>(null);
   const [selectedDay, setSelectedDay] = useState<string>('');
   const [selectedPeriod, setSelectedPeriod] = useState<number>(0);
-  const [filteredCourses, setFilteredCourses] = useState<CourseData[]>([]);
   const [isDataLoading, setIsDataLoading] = useState<boolean>(true);
 
-  // 試験関連の状態
   const [examDate, setExamDate] = useState<Date>(new Date());
   const [selectedExam, setSelectedExam] = useState<Exam | null>(null);
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
 
-  // モーダルの状態
   const [isAttendanceModalVisible, setIsAttendanceModalVisible] = useState<boolean>(false);
   const [isCourseModalVisible, setIsCourseModalVisible] = useState<boolean>(false);
   const [isTemplateModalVisible, setIsTemplateModalVisible] = useState<boolean>(false);
   const [isExamModalVisible, setIsExamModalVisible] = useState<boolean>(false);
 
-  // TemplateModal 用の activeTerm 状態（型は any で最小修正）
-  const [activeTerm, setActiveTerm] = useState<any>('all');
-
-  // 検索機能
-  const { query, setQuery, results } = useCourseSearch(courseData, selectedDay, selectedPeriod);
-  
-  useEffect(() => {
-    setFilteredCourses(results);
-  }, [results]);  
-
-  const courseCandidatesForModal = useMemo(() => {
-    return courseData.filter(
-      course =>
-        course.曜日 === selectedDay &&
-        course.時限.split(',').map(s => s.trim()).includes(String(selectedPeriod))
-    );
-  }, [courseData, selectedDay, selectedPeriod]);  
-
   // 初期化
-  useEffect(() => {
-    initializeApp();
-  }, []);
+  useEffect(() => { initializeApp(); }, []);
 
-  // 初期化処理も更新
   const initializeApp = async () => {
     try {
       setIsDataLoading(true);
       await notificationService.requestPermissions();
+
       const existingTemplates = await storageService.getTemplates();
       if (!existingTemplates || existingTemplates.length === 0) {
-        // ✅ 空の時間割テンプレートを作成
         const emptyTimetable = {};
         await addTemplate('デフォルト時間割', emptyTimetable);
         const updatedTemplates = await storageService.getTemplates();
@@ -167,11 +135,14 @@ export default function Page() {
         const currentId = await storageService.getCurrentTemplateId();
         await setCurrentTemplateId(currentId);
       }
-  
-      // ✅ CSVから候補を読み込む（登録はしない）
+
+      // 学期の復元（前期/後期のみ）
+      const savedTerm = await storageService.getActiveTerm();
+      setActiveTerm(savedTerm);
+
+      // CSVから候補を読み込み
       const classes = await loadTimetableFromCSV();
       setCourseData(classes);
-  
     } catch (error) {
       console.error('Error initializing app:', error);
       Alert.alert('エラー', 'アプリの初期化中にエラーが発生しました');
@@ -180,21 +151,61 @@ export default function Page() {
     }
   };
 
-  // ✅ モーダルからの更新を保存
-  const handleSubjectUpdate = useCallback(async (updated: Subject) => {
-    const templateId = getCurrentTemplate()?.id;
-    if (!templateId) return;
+  // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
+  const coursesByActiveTerm = useMemo(() => {
+    return courseData.filter(c => {
+      if (activeTerm === '前期') return c.履修期 === '前期' || c.履修期 === '通年';
+      // '後期'
+      return c.履修期 === '後期' || c.履修期 === '通年';
+    });
+  }, [courseData, activeTerm]);
 
-    const day = selectedDay;
-    const period = String(selectedPeriod);
+  // 検索（学期で絞って渡す）
+  const { query, setQuery, results } = useCourseSearch(
+    coursesByActiveTerm,
+    selectedDay,
+    selectedPeriod
+  );
 
-    await updateSubject(templateId, day, period, updated);
-    const updatedTemplates = await storageService.getTemplates();
-    await setTemplates(updatedTemplates);
-    setSelectedSubject(updated); // モーダル内の値を即時反映
-  }, [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]);
+  // コマ候補も学期で絞る
+  const courseCandidatesForModal = useMemo(() => {
+    return coursesByActiveTerm.filter(
+      course =>
+        course.曜日 === selectedDay &&
+        course.時限.split(',').map(s => s.trim()).includes(String(selectedPeriod))
+    );
+  }, [coursesByActiveTerm, selectedDay, selectedPeriod]);
 
-  // ✅ 出席・欠席・遅刻ボタンの加算処理（最新版を storage から取得）
+  // === 時間割も学期でフィルタリング ===
+  const filteredTimetable = useMemo(() => {
+    const timetable = getCurrentTemplate()?.timetable || {};
+    const filtered: any = {};
+
+    for (const day of Object.keys(timetable)) {
+      filtered[day] = {};
+      for (const period of Object.keys(timetable[day])) {
+        const subject = timetable[day][period];
+        if (subject) {
+          // 前期選択時 → 前期 or 通年 or 年間 or 前期隔週 or 年間隔週
+          // 後期選択時 → 後期 or 通年 or 年間 or 後期隔週 or 年間隔週
+          const term = subject.term || '';
+          if (activeTerm === '前期') {
+            if (term.includes('前期') || term.includes('通年') || term.includes('年間')) {
+              filtered[day][period] = subject;
+            }
+          } else {
+            // 後期
+            if (term.includes('後期') || term.includes('通年') || term.includes('年間')) {
+              filtered[day][period] = subject;
+            }
+          }
+        }
+      }
+    }
+
+    return filtered;
+  }, [getCurrentTemplate, activeTerm]);
+
   const handleAttendanceUpdate = useCallback(
     async (type: 'attendance' | 'absence' | 'late') => {
       const template = getCurrentTemplate();
@@ -341,15 +352,11 @@ export default function Page() {
                 />
               </View>
 
-               {/* Google カレンダー「今後の予定」セクション */}
+              {/* Google カレンダー「今後の予定」 */}
               <View style={styles.calendarSection}>
                 <Text style={[styles.calendarTitle, { color: currentTheme.textColor }]}>今後の予定</Text>
                 {calLoading && <ActivityIndicator size="small" color={currentTheme.textColor} />}
-                {calError && (
-                  <Text style={[styles.errorText, { color: currentTheme.textColor }]}>
-                    予定の取得に失敗しました
-                  </Text>
-                )}
+                {calError && <Text style={[styles.errorText, { color: currentTheme.textColor }]}>予定の取得に失敗しました</Text>}
                 <CalendarView events={events} theme={currentTheme} />
               </View>
             </ScrollView>
@@ -380,7 +387,7 @@ export default function Page() {
                 professor: course.教員,
                 credits: course.単位,
                 term: course.履修期,
-                color: decidedColor,           // ← ここだけ追加
+                color: decidedColor,
                 notifications: true,
                 room: course.教室 ?? '',
                 attendance: 0,
@@ -394,7 +401,7 @@ export default function Page() {
               const updatedTemplates = await storageService.getTemplates();
               await setTemplates(updatedTemplates);
               setIsCourseModalVisible(false);
-            }}        
+            }}
           />
 
           {/* モーダル類 */}
@@ -424,8 +431,6 @@ export default function Page() {
               const target = tt[day]?.[period];
               if (!target) return;
 
-              // 2) 同一授業のぜんぶのコマを特定
-              //    優先: linkGroupId => 同日 linkedPeriods => 同日 name/professor 一致 & 連続（+当該period）
               const keysToDelete = new Set<string>([period]);
 
               if (target.linkGroupId) {
@@ -437,7 +442,6 @@ export default function Page() {
               } else if (Array.isArray(target.linkedPeriods) && target.linkedPeriods.length) {
                 for (const p of target.linkedPeriods) keysToDelete.add(String(p));
               } else {
-                // 後方互換: 同曜日で name/professor が同じ連続コマを推定
                 const same = Object.keys(tt[day] || {}).filter(p => {
                   if (p === period) return true;
                   const s = tt[day][p];
@@ -446,27 +450,32 @@ export default function Page() {
                 same.forEach(p => keysToDelete.add(p));
               }
 
-              // 3) まとめて削除（選択したコマ自身も必ず含める）
               for (const k of keysToDelete) {
                 if (tt[day]?.[k]) delete tt[day][k];
               }
-
-              // 空オブジェクト掃除（任意）
               if (tt[day] && Object.keys(tt[day]).length === 0) delete tt[day];
 
-              // 4) 一度だけ保存 → 反映
               templates[idx] = { ...templates[idx], timetable: tt };
               await storageService.saveTemplates(templates);
               const refreshed = await storageService.getTemplates();
               await setTemplates(refreshed);
 
-              // 削除完了後、両方のモーダルを確実に閉じる
               setSelectedSubject(null);
               setIsAttendanceModalVisible(false);
             }}
-            // ← 親側の保存ロジックに統一
-            onSubjectUpdate={handleSubjectUpdate}
+            onSubjectUpdate={async (updated) => {
+              const templateId = getCurrentTemplate()?.id;
+              if (!templateId) return;
+              const day = selectedDay;
+              const period = String(selectedPeriod);
+              await updateSubject(templateId, day, period, updated);
+              const updatedTemplates = await storageService.getTemplates();
+              await setTemplates(updatedTemplates);
+              setSelectedSubject(updated);
+            }}
           />
+
+          {/* 試験モーダル */}
           <ExamModal
             visible={isExamModalVisible}
             exam={selectedExam}
@@ -475,23 +484,17 @@ export default function Page() {
             subjects={getAllRegisteredSubjects()}
             onClose={() => setIsExamModalVisible(false)}
             onSave={async (examData) => {
-              if (examData.id) {
-                await updateExam(examData as Exam);
-              } else {
-                await addExam(examData);
-              }
-              const updated = await getAllRegisteredSubjects();
+              if (examData.id) await updateExam(examData as Exam);
+              else await addExam(examData);
               setSelectedExam(null);
               setIsExamModalVisible(false);
             }}
-            onDelete={async (id) => {
-              await deleteExam(id);
-              setIsExamModalVisible(false);
-            }}
+            onDelete={async (id) => { await deleteExam(id); setIsExamModalVisible(false); }}
             onDateChange={(date) => setExamDate(date)}
             onDatePickerVisibilityChange={(visible) => setShowDatePicker(visible)}
           />
 
+          {/* テンプレート & 学期モーダル（前期/後期のみ） */}
           <TemplateModal
             visible={isTemplateModalVisible}
             templates={templates}
