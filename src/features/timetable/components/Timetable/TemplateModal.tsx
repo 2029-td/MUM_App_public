@@ -98,6 +98,8 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
               selected={activeTerm === '前期'}
               onPress={() => onChangeTerm('前期')}
               style={[styles.termChip, activeTerm === '前期' && styles.termChipSelected]}
+              selectedColor="#000"          // ← ここでテキスト & チェックを黒に固定
+              textStyle={{ color: '#000' }}  // 文字色も黒に
             >
               前期
             </Chip>
@@ -106,6 +108,8 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
               selected={activeTerm === '後期'}
               onPress={() => onChangeTerm('後期')}
               style={[styles.termChip, activeTerm === '後期' && styles.termChipSelected]}
+              selectedColor="#000"          // ← ここでテキスト & チェックを黒に固定
+              textStyle={{ color: '#000' }}  // 文字色も黒に
             >
               後期
             </Chip>
@@ -188,10 +192,18 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center',
-  backgroundColor: 'rgba(0, 0, 0, 0.5)' },
-  modalContent: { backgroundColor: 'white', borderRadius: 10, padding: 20, width: '90%', maxHeight: '80%' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, color: '#333' },
+  modalContainer: {
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    backgroundColor: 'white', borderRadius: 10, padding: 20,
+    width: '90%', maxHeight: '80%',
+  },
+  modalTitle: {
+    fontSize: 20, fontWeight: 'bold', textAlign: 'center',
+    marginBottom: 12, color: '#333',
+  },
   termChipsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
   termChip: { borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f7f7f7' },
   termChipSelected: { backgroundColor: '#e0f2f1', borderColor: '#26a69a' },
@@ -205,9 +217,18 @@ const styles = StyleSheet.create({
   shareButton: { backgroundColor: '#4CAF50', padding: 8, borderRadius: 5 },
   deleteButton: { backgroundColor: '#F44336', padding: 8, borderRadius: 5 },
   addTemplateContainer: { flexDirection: 'row', marginBottom: 15 },
-  templateInput: { flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5, padding: 10, marginRight: 10, fontSize: 16, color: '#333' },
-  addTemplateButton: { backgroundColor: '#4CAF50', padding: 10, borderRadius: 5, justifyContent: 'center', minWidth: 80 },
+  templateInput: {
+    flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5,
+    padding: 10, marginRight: 10, fontSize: 16, color: '#333',
+  },
+  addTemplateButton: {
+    backgroundColor: '#4CAF50', padding: 10, borderRadius: 5,
+    justifyContent: 'center', minWidth: 80,
+  },
   addTemplateButtonDisabled: { backgroundColor: '#ccc' },
-  closeButton: { backgroundColor: '#2196F3', padding: 10, borderRadius: 5, alignItems: 'center' },
+  closeButton: {
+    backgroundColor: '#2196F3', padding: 10,
+    borderRadius: 5, alignItems: 'center',
+  },
   buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
 });
