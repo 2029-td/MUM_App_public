@@ -77,6 +77,7 @@ const AppShell = () => {
             id={undefined}
             screenOptions={({ route }) => ({
               headerShown: true,
+              headerTitle: () => null, // 全画面でタイトルを消す
               // ★ ヘッダーを曜日ヘッダー色に
               headerStyle: { backgroundColor: navBg },
               headerTintColor: navFg,
