@@ -189,7 +189,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
 
 const styles = StyleSheet.create({
   modalContainer: { flex: 1, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  backgroundColor: 'rgba(0, 0, 0, 0.5)' },
   modalContent: { backgroundColor: 'white', borderRadius: 10, padding: 20, width: '90%', maxHeight: '80%' },
   modalTitle: { fontSize: 20, fontWeight: 'bold', textAlign: 'center', marginBottom: 12, color: '#333' },
   termChipsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },

@@ -211,7 +211,7 @@ export default function Page() {
                   mode="flat"
                   compact
                   style={{
-                    backgroundColor: getCurrentTheme().headerColor, // ← 曜日ヘッダーと同じ背景
+                    backgroundColor: getCurrentTheme().cellBackgroundColor, // ← 曜日ヘッダーと同じ背景
                     borderWidth: 0,                                  // ← 枠なしで統一
                   }}
                   textStyle={{
