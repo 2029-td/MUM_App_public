@@ -3,7 +3,7 @@
     "owner": "teru0422",
     "name": "MUM",
     "slug": "MUM",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "orientation": "portrait",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.matsulab.mumapp",
-      "versionCode": 12,
+      "versionCode": 13,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
