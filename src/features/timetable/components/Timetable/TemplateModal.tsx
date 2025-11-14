@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -46,6 +46,11 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
     id: string;
     name: string;
   } | null>(null);
+
+  const filteredTemplates = useMemo(() => {
+  return templates;
+}, [templates, activeTerm]);
+
 
   const handleShare = (template: TimetableTemplate) => {
     setSelectedTemplateForShare({ id: template.id, name: template.name });
@@ -116,7 +121,7 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
           </View>
 
           <ScrollView style={styles.templateList}>
-            {templates.map(template => (
+            {filteredTemplates.map(template => (
               <View key={template.id} style={styles.templateItem}>
                 <View style={styles.templateInfo}>
                   <Text style={styles.templateName}>{template.name}</Text>
