@@ -10,7 +10,7 @@ export interface ClassInfo {
 }
 
 export const loadClassesData = async (): Promise<ClassInfo[]> => {
-  const asset = Asset.fromModule(require('assets/data/timetable.csv'));
+  const asset = Asset.fromModule(require('../../../assets/data/timetable.csv'));
   await asset.downloadAsync();
 
   const csv = await FileSystem.readAsStringAsync(asset.localUri!, {

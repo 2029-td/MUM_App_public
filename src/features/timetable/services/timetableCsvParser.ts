@@ -16,7 +16,7 @@ const normalizeTerm = (raw?: string): Term => {
 };
 
 export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
-  const asset = Asset.fromModule(require('assets/data/timetable.csv'));
+  const asset = Asset.fromModule(require('../../../assets/data/timetable.csv'));
   await asset.downloadAsync();
 
   const csv = await FileSystem.readAsStringAsync(asset.localUri!, { encoding: 'utf8' });

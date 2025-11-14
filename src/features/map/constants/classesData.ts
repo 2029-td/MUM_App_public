@@ -12,7 +12,7 @@ export interface ClassInfo {
 export const loadClassesData = async (): Promise<ClassInfo[]> => {
   // bundled CSV を取得
   const asset = Asset.fromModule(
-    require('assets/data/timetable.csv')
+    require('../../../assets/data/timetable.csv')
   );
   await asset.downloadAsync();
 
