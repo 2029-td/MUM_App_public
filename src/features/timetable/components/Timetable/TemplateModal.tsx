@@ -3,8 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   Modal,
+  TouchableOpacity,
   StyleSheet,
 } from 'react-native';
 import { Chip } from 'react-native-paper';
@@ -14,33 +14,40 @@ import type { ActiveTerm } from '../../types';
 interface YearTermModalProps {
   visible: boolean;
   activeYear: number;
-  activeTerm: ActiveTerm;                 // '前期' | '後期'
-  onChangeYear: (year: number) => void;   // ← 親の state を更新するだけ
+  activeTerm: ActiveTerm;
+  activeGrade: number;                       // ★ 追加: 学年 1〜4
+  onChangeYear: (year: number) => void;
   onChangeTerm: (term: ActiveTerm) => void;
-  onClose: () => void;                    // ← ✕ を押したときに呼ばれる（確定タイミング）
+  onChangeGrade: (grade: number) => void;    // ★ 追加: 学年変更
+  onClose: () => void;                       // ✕ を押した時に呼ぶ
 }
 
 export const YearTermModal: React.FC<YearTermModalProps> = ({
   visible,
   activeYear,
   activeTerm,
+  activeGrade,
   onChangeYear,
   onChangeTerm,
+  onChangeGrade,
   onClose,
 }) => {
-  // ピッカー用の一時選択値
+  // ピッカー用一時値
   const [tempYear, setTempYear] = useState<number>(activeYear);
+  const [tempGrade, setTempGrade] = useState<number>(activeGrade);
 
   const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
+  const [isGradePickerVisible, setIsGradePickerVisible] = useState(false);
 
   // モーダルを開くたびに現在値で初期化
   useEffect(() => {
     if (visible) {
       setTempYear(activeYear);
+      setTempGrade(activeGrade);
     }
-  }, [visible, activeYear]);
+  }, [visible, activeYear, activeGrade]);
 
-  // 年度の候補（必要に応じて範囲は調整してOK）
+  // 年度候補
   const yearOptions = useMemo(() => {
     const thisYear = new Date().getFullYear();
     const years: number[] = [];
@@ -50,19 +57,27 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
     return years;
   }, []);
 
+  // 学年候補（1〜4）
+  const gradeOptions = [1, 2, 3, 4];
+
   const openYearPicker = () => {
     setTempYear(activeYear);
     setIsYearPickerVisible(true);
   };
-
-  const closeYearPicker = () => {
+  const closeYearPicker = () => setIsYearPickerVisible(false);
+  const handleYearConfirm = () => {
+    onChangeYear(tempYear);          // ここでは state 更新だけ（テンプレ切り替えは親の onClose で）
     setIsYearPickerVisible(false);
   };
 
-  const handleYearConfirm = () => {
-    // 年度の変更はここで親に反映（ただしテンプレ切り替えはまだ）
-    onChangeYear(tempYear);
-    setIsYearPickerVisible(false);
+  const openGradePicker = () => {
+    setTempGrade(activeGrade);
+    setIsGradePickerVisible(true);
+  };
+  const closeGradePicker = () => setIsGradePickerVisible(false);
+  const handleGradeConfirm = () => {
+    onChangeGrade(tempGrade);
+    setIsGradePickerVisible(false);
   };
 
   return (
@@ -72,34 +87,42 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
       animationType="fade"
       onRequestClose={onClose}
     >
-      {/* === 中央に出るモーダル構造 === */}
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          {/* ヘッダー：タイトル＋右上バツ */}
+          {/* タイトル＋✕ */}
           <View style={styles.headerRow}>
             <Text style={styles.modalTitle}>年度 / 学期切替</Text>
-            <TouchableOpacity
-              onPress={onClose}  // ← ここが「確定して閉じる」タイミング
-              style={styles.closeIconButton}
-            >
+            <TouchableOpacity style={styles.closeIconButton} onPress={onClose}>
               <Text style={styles.closeIconText}>✕</Text>
             </TouchableOpacity>
           </View>
 
-          {/* 年度行：タップすると下からホイール */}
+          <Text style={styles.description}>
+            年度や学期、学年が変わった時は、こちらから設定を変更してください。
+            異なる条件が設定されている場合、授業データなどが正しく対応しない可能性があります。
+          </Text>
+
+          {/* ★ 学年 */}
+          <Text style={styles.sectionLabel}>学年</Text>
+          <TouchableOpacity style={styles.row} onPress={openGradePicker}>
+            <Text style={styles.rowValue}>{activeGrade}年</Text>
+            <Text style={styles.rowIcon}>▾</Text>
+          </TouchableOpacity>
+
+          {/* 年度 */}
           <Text style={styles.sectionLabel}>年度</Text>
           <TouchableOpacity style={styles.row} onPress={openYearPicker}>
             <Text style={styles.rowValue}>{activeYear}年度</Text>
             <Text style={styles.rowIcon}>▾</Text>
           </TouchableOpacity>
 
-          {/* 前期 / 後期ボタン（見た目は元のまま） */}
+          {/* 学期（前期/後期ボタンは元のまま） */}
           <Text style={styles.sectionLabel}>学期</Text>
           <View style={styles.termChipsRow}>
             <Chip
               mode="flat"
               selected={activeTerm === '前期'}
-              onPress={() => onChangeTerm('前期')} // ここでは state を変えるだけ
+              onPress={() => onChangeTerm('前期')}
               style={[styles.termChip, activeTerm === '前期' && styles.termChipSelected]}
               selectedColor="#000"
               textStyle={{ color: '#000' }}
@@ -120,7 +143,7 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
         </View>
       </View>
 
-      {/* === 年度ピッカー（下から出てくるホイール） === */}
+      {/* 年度ホイール */}
       <Modal
         visible={isYearPickerVisible}
         transparent
@@ -129,7 +152,6 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
       >
         <View style={styles.pickerBackdrop}>
           <View style={styles.pickerContainer}>
-            {/* 上のバー（キャンセル / タイトル / 完了） */}
             <View style={styles.pickerHeader}>
               <TouchableOpacity onPress={closeYearPicker}>
                 <Text style={styles.pickerHeaderButton}>キャンセル</Text>
@@ -139,18 +161,42 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
                 <Text style={styles.pickerHeaderButton}>完了</Text>
               </TouchableOpacity>
             </View>
-
-            {/* ホイールピッカー本体 */}
             <Picker
               selectedValue={tempYear}
               onValueChange={(value) => setTempYear(value)}
             >
               {yearOptions.map(year => (
-                <Picker.Item
-                  key={year}
-                  label={String(year)}
-                  value={year}
-                />
+                <Picker.Item key={year} label={String(year)} value={year} />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 学年ホイール */}
+      <Modal
+        visible={isGradePickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeGradePicker}
+      >
+        <View style={styles.pickerBackdrop}>
+          <View style={styles.pickerContainer}>
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={closeGradePicker}>
+                <Text style={styles.pickerHeaderButton}>キャンセル</Text>
+              </TouchableOpacity>
+              <Text style={styles.pickerHeaderTitle}>学年を選択</Text>
+              <TouchableOpacity onPress={handleGradeConfirm}>
+                <Text style={styles.pickerHeaderButton}>完了</Text>
+              </TouchableOpacity>
+            </View>
+            <Picker
+              selectedValue={tempGrade}
+              onValueChange={(value) => setTempGrade(value)}
+            >
+              {gradeOptions.map(grade => (
+                <Picker.Item key={grade} label={`${grade}年`} value={grade} />
               ))}
             </Picker>
           </View>
@@ -161,7 +207,6 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  // 中央モーダル
   modalContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -177,8 +222,8 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 8,
   },
   modalTitle: {
@@ -224,8 +269,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
   },
-
-  // 前期/後期ボタン
   termChipsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -242,8 +285,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#e0f2f1',
     borderColor: '#26a69a',
   },
-
-  // ピッカー
   pickerBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',

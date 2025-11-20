@@ -11,6 +11,7 @@ export type ActiveTerm = '前期' | '後期';
 
 // CSVファイルから取得する科目データの型
 export interface CourseData {
+  学年: number;
   科目名: string;
   教員: string;
   単位: number;

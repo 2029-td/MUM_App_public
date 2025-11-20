@@ -97,8 +97,9 @@ export default function Page() {
   // === 学期（前期/後期のみ） ===
   const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
   const [activeTerm, setActiveTerm] = useState<ActiveTerm>('前期');
+  const [activeGrade, setActiveGrade] = useState<number>(1);
   const [isYearTermModalVisible, setIsYearTermModalVisible] = useState(false);
-  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
+  const [isShareModalVisible, setIsShareModalVisible] = useState<boolean>(false);
 
   // === 状態 ===
   const [courseData, setCourseData] = useState<CourseData[]>([]);
@@ -208,20 +209,27 @@ const switchPeriod = useCallback(
   // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
   const coursesByActiveTerm = useMemo(() => {
     return courseData.filter(c => {
-      if (activeTerm === '前期') return c.履修期 === '前期' || c.履修期 === '通年';
-      // '後期'
-      return c.履修期 === '後期' || c.履修期 === '通年';
+      // 学期フィルタ
+      const termOk =
+        activeTerm === '前期'
+          ? c.履修期 === '前期' || c.履修期 === '通年'
+          : c.履修期 === '後期' || c.履修期 === '通年';
+
+      if (!termOk) return false;
+
+      // 学年フィルタ（選択した学年以下のみ）
+      const grade = Number(c.学年) || 1;
+      return grade <= activeGrade;
     });
-  }, [courseData, activeTerm]);
+  }, [courseData, activeTerm, activeGrade]);
 
   // 検索（学期で絞って渡す）
   const { query, setQuery, results } = useCourseSearch(
-    coursesByActiveTerm,
+    coursesByActiveTerm,    // ← これで学年も効く
     selectedDay,
     selectedPeriod
   );
 
-  // コマ候補も学期で絞る
   const courseCandidatesForModal = useMemo(() => {
     return coursesByActiveTerm.filter(
       course =>
@@ -314,15 +322,14 @@ const switchPeriod = useCallback(
                   時間割表
                 </Text>
                 <View style={styles.headerButtons}>
-                  {/* ← 左側：共有ボタン */}
+                  {/* ここに共有ボタン */}
                   <TouchableOpacity
                     style={styles.shareButton}
-                    onPress={() => setIsShareModalVisible(true)}
+                    onPress={() => setIsShareModalVisible(true)}   // ★ ここで true にする
                   >
                     <Text style={styles.shareButtonText}>共有</Text>
                   </TouchableOpacity>
 
-                  {/* ← 右側：年度/学期ボタン（今まで通り） */}
                   <Chip
                     mode="flat"
                     compact
@@ -562,28 +569,30 @@ const switchPeriod = useCallback(
             visible={isYearTermModalVisible}
             activeYear={activeYear}
             activeTerm={activeTerm}
-            // ✋ ここでは「選択値だけ変える」
+            activeGrade={activeGrade}                    // ★ 追加
             onChangeYear={(year) => {
               setActiveYear(year);
             }}
             onChangeTerm={(term) => {
               setActiveTerm(term);
             }}
-            // ✅ ✕ を押したタイミングでだけ switchPeriod
+            onChangeGrade={(grade) => {                  // ★ 追加
+              setActiveGrade(grade);
+            }}
             onClose={async () => {
-              await switchPeriod(activeYear, activeTerm); // ← ここで年度＋学期に応じたテンプレを切り替え
+              // ✕ を押したタイミングでだけテンプレ切り替え
+              await switchPeriod(activeYear, activeTerm);
               setIsYearTermModalVisible(false);
             }}
           />
 
-          {/* テンプレ共有モーダル */}
           <TemplateShareModal
             visible={isShareModalVisible}
             onClose={() => setIsShareModalVisible(false)}
             templateId={currentTemplateId}
             templateName={getCurrentTemplate()?.name ?? ''}
             onImportSuccess={async () => {
-              // インポート後にテンプレ一覧を取り直して反映
+              // インポート後にテンプレ一覧を更新
               const updated = await storageService.getTemplates();
               await setTemplates(updated);
             }}
