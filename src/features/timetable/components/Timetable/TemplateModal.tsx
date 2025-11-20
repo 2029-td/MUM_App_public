@@ -1,110 +1,108 @@
-import React, { useState, useMemo } from 'react';
+// src/features/timetable/components/Timetable/TemplateModal.tsx
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
   Modal,
-  TextInput,
-  ScrollView,
   StyleSheet,
-  Alert,
 } from 'react-native';
 import { Chip } from 'react-native-paper';
-import { storageService } from '../../services/storage';
-import type { TimetableTemplate, ActiveTerm } from '../../types';
-import { TemplateShareModal } from './TemplateShareModal';
+import { Picker } from '@react-native-picker/picker';
+import type { ActiveTerm } from '../../types';
 
-interface TemplateModalProps {
+interface YearTermModalProps {
   visible: boolean;
-  templates: TimetableTemplate[];
-  currentTemplateId: string;
-  onClose: () => void;
-  onTemplateSelect: (id: string) => void | Promise<void>;
-  onTemplateAdd: (name: string) => void | Promise<void>;
-  onTemplateDelete: (id: string) => void | Promise<void>;
-  onTemplatesUpdate: () => Promise<void>;
-  // 学期切替（前期/後期のみ）
-  activeTerm: ActiveTerm;
-  onChangeTerm: (t: ActiveTerm) => void | Promise<void>;
+  activeYear: number;
+  activeTerm: ActiveTerm;                 // '前期' | '後期'
+  onChangeYear: (year: number) => void;   // ← 親の state を更新するだけ
+  onChangeTerm: (term: ActiveTerm) => void;
+  onClose: () => void;                    // ← ✕ を押したときに呼ばれる（確定タイミング）
 }
 
-export const TemplateModal: React.FC<TemplateModalProps> = ({
+export const YearTermModal: React.FC<YearTermModalProps> = ({
   visible,
-  templates,
-  currentTemplateId,
-  onClose,
-  onTemplateSelect,
-  onTemplateAdd,
-  onTemplateDelete,
-  onTemplatesUpdate,
+  activeYear,
   activeTerm,
+  onChangeYear,
   onChangeTerm,
+  onClose,
 }) => {
-  const [newTemplateName, setNewTemplateName] = useState('');
-  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
-  const [selectedTemplateForShare, setSelectedTemplateForShare] = useState<{
-    id: string;
-    name: string;
-  } | null>(null);
+  // ピッカー用の一時選択値
+  const [tempYear, setTempYear] = useState<number>(activeYear);
 
-  const filteredTemplates = useMemo(() => {
-  return templates;
-}, [templates, activeTerm]);
+  const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
 
-
-  const handleShare = (template: TimetableTemplate) => {
-    setSelectedTemplateForShare({ id: template.id, name: template.name });
-    setIsShareModalVisible(true);
-  };
-
-  const handleDelete = (templateId: string, templateName: string) => {
-    Alert.alert(
-      '確認',
-      `テンプレート "${templateName}" を削除してもよろしいですか？`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: '削除', style: 'destructive', onPress: () => onTemplateDelete(templateId) },
-      ]
-    );
-  };
-
-  const handleAddTemplate = () => {
-    if (newTemplateName.trim()) {
-      onTemplateAdd(newTemplateName.trim());
-      setNewTemplateName('');
+  // モーダルを開くたびに現在値で初期化
+  useEffect(() => {
+    if (visible) {
+      setTempYear(activeYear);
     }
+  }, [visible, activeYear]);
+
+  // 年度の候補（必要に応じて範囲は調整してOK）
+  const yearOptions = useMemo(() => {
+    const thisYear = new Date().getFullYear();
+    const years: number[] = [];
+    for (let i = -3; i <= 3; i++) {
+      years.push(thisYear + i);
+    }
+    return years;
+  }, []);
+
+  const openYearPicker = () => {
+    setTempYear(activeYear);
+    setIsYearPickerVisible(true);
   };
 
-  const handleImportSuccess = async () => {
-    try {
-      await onTemplatesUpdate();
-      const updatedTemplates = await storageService.getTemplates();
-      if (updatedTemplates.length > 0) {
-        const currentTemplate =
-          updatedTemplates.find(t => t.id === currentTemplateId) || updatedTemplates[0];
-        onTemplateSelect(currentTemplate.id);
-      }
-    } catch (error) {
-      console.error('Error updating after import:', error);
-      Alert.alert('エラー', 'テンプレートの更新に失敗しました');
-    }
+  const closeYearPicker = () => {
+    setIsYearPickerVisible(false);
+  };
+
+  const handleYearConfirm = () => {
+    // 年度の変更はここで親に反映（ただしテンプレ切り替えはまだ）
+    onChangeYear(tempYear);
+    setIsYearPickerVisible(false);
   };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
+      {/* === 中央に出るモーダル構造 === */}
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>時間割テンプレート管理</Text>
+          {/* ヘッダー：タイトル＋右上バツ */}
+          <View style={styles.headerRow}>
+            <Text style={styles.modalTitle}>年度 / 学期切替</Text>
+            <TouchableOpacity
+              onPress={onClose}  // ← ここが「確定して閉じる」タイミング
+              style={styles.closeIconButton}
+            >
+              <Text style={styles.closeIconText}>✕</Text>
+            </TouchableOpacity>
+          </View>
 
-          {/* 学期切替（前期/後期のみ） */}
+          {/* 年度行：タップすると下からホイール */}
+          <Text style={styles.sectionLabel}>年度</Text>
+          <TouchableOpacity style={styles.row} onPress={openYearPicker}>
+            <Text style={styles.rowValue}>{activeYear}年度</Text>
+            <Text style={styles.rowIcon}>▾</Text>
+          </TouchableOpacity>
+
+          {/* 前期 / 後期ボタン（見た目は元のまま） */}
+          <Text style={styles.sectionLabel}>学期</Text>
           <View style={styles.termChipsRow}>
             <Chip
               mode="flat"
               selected={activeTerm === '前期'}
-              onPress={() => onChangeTerm('前期')}
+              onPress={() => onChangeTerm('前期')} // ここでは state を変えるだけ
               style={[styles.termChip, activeTerm === '前期' && styles.termChipSelected]}
-              selectedColor="#000"          // ← ここでテキスト & チェックを黒に固定
-              textStyle={{ color: '#000' }}  // 文字色も黒に
+              selectedColor="#000"
+              textStyle={{ color: '#000' }}
             >
               前期
             </Chip>
@@ -113,127 +111,163 @@ export const TemplateModal: React.FC<TemplateModalProps> = ({
               selected={activeTerm === '後期'}
               onPress={() => onChangeTerm('後期')}
               style={[styles.termChip, activeTerm === '後期' && styles.termChipSelected]}
-              selectedColor="#000"          // ← ここでテキスト & チェックを黒に固定
-              textStyle={{ color: '#000' }}  // 文字色も黒に
+              selectedColor="#000"
+              textStyle={{ color: '#000' }}
             >
               後期
             </Chip>
           </View>
-
-          <ScrollView style={styles.templateList}>
-            {filteredTemplates.map(template => (
-              <View key={template.id} style={styles.templateItem}>
-                <View style={styles.templateInfo}>
-                  <Text style={styles.templateName}>{template.name}</Text>
-                  {template.id === currentTemplateId && (
-                    <Text style={styles.currentLabel}>現在使用中</Text>
-                  )}
-                </View>
-                <View style={styles.templateButtons}>
-                  {template.id !== currentTemplateId && (
-                    <TouchableOpacity
-                      style={styles.selectButton}
-                      onPress={() => onTemplateSelect(template.id)}
-                    >
-                      <Text style={styles.buttonText}>使用する</Text>
-                    </TouchableOpacity>
-                  )}
-                  <TouchableOpacity style={styles.shareButton} onPress={() => handleShare(template)}>
-                    <Text style={styles.buttonText}>共有</Text>
-                  </TouchableOpacity>
-                  {template.id !== 'default' && (
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDelete(template.id, template.name)}
-                    >
-                      <Text style={styles.buttonText}>削除</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              </View>
-            ))}
-          </ScrollView>
-
-          <View style={styles.addTemplateContainer}>
-            <TextInput
-              style={styles.templateInput}
-              value={newTemplateName}
-              onChangeText={setNewTemplateName}
-              placeholder="新しいテンプレート名"
-              placeholderTextColor="#999"
-            />
-            <TouchableOpacity
-              style={[
-                styles.addTemplateButton,
-                !newTemplateName.trim() && styles.addTemplateButtonDisabled,
-              ]}
-              onPress={handleAddTemplate}
-              disabled={!newTemplateName.trim()}
-            >
-              <Text style={styles.buttonText}>追加</Text>
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
-            <Text style={styles.buttonText}>閉じる</Text>
-          </TouchableOpacity>
         </View>
       </View>
 
-      {selectedTemplateForShare && (
-        <TemplateShareModal
-          visible={isShareModalVisible}
-          onClose={() => {
-            setIsShareModalVisible(false);
-            setSelectedTemplateForShare(null);
-          }}
-          templateId={selectedTemplateForShare.id}
-          templateName={selectedTemplateForShare.name}
-          onImportSuccess={handleImportSuccess}
-        />
-      )}
+      {/* === 年度ピッカー（下から出てくるホイール） === */}
+      <Modal
+        visible={isYearPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={closeYearPicker}
+      >
+        <View style={styles.pickerBackdrop}>
+          <View style={styles.pickerContainer}>
+            {/* 上のバー（キャンセル / タイトル / 完了） */}
+            <View style={styles.pickerHeader}>
+              <TouchableOpacity onPress={closeYearPicker}>
+                <Text style={styles.pickerHeaderButton}>キャンセル</Text>
+              </TouchableOpacity>
+              <Text style={styles.pickerHeaderTitle}>年度を選択</Text>
+              <TouchableOpacity onPress={handleYearConfirm}>
+                <Text style={styles.pickerHeaderButton}>完了</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* ホイールピッカー本体 */}
+            <Picker
+              selectedValue={tempYear}
+              onValueChange={(value) => setTempYear(value)}
+            >
+              {yearOptions.map(year => (
+                <Picker.Item
+                  key={year}
+                  label={String(year)}
+                  value={year}
+                />
+              ))}
+            </Picker>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
 
 const styles = StyleSheet.create({
+  // 中央モーダル
   modalContainer: {
-    flex: 1, justifyContent: 'center', alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    backgroundColor: 'white', borderRadius: 10, padding: 20,
-    width: '90%', maxHeight: '80%',
+    backgroundColor: 'white',
+    borderRadius: 10,
+    padding: 20,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   modalTitle: {
-    fontSize: 20, fontWeight: 'bold', textAlign: 'center',
-    marginBottom: 12, color: '#333',
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  termChipsRow: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginBottom: 12 },
-  termChip: { borderWidth: 1, borderColor: '#ddd', backgroundColor: '#f7f7f7' },
-  termChipSelected: { backgroundColor: '#e0f2f1', borderColor: '#26a69a' },
-  templateList: { maxHeight: 300, marginBottom: 15 },
-  templateItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
-  templateInfo: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  templateName: { fontSize: 16, flex: 1, color: '#333' },
-  currentLabel: { fontSize: 12, color: '#4CAF50', fontWeight: 'bold', marginLeft: 10 },
-  templateButtons: { flexDirection: 'row', justifyContent: 'flex-end', gap: 10 },
-  selectButton: { backgroundColor: '#2196F3', padding: 8, borderRadius: 5 },
-  shareButton: { backgroundColor: '#4CAF50', padding: 8, borderRadius: 5 },
-  deleteButton: { backgroundColor: '#F44336', padding: 8, borderRadius: 5 },
-  addTemplateContainer: { flexDirection: 'row', marginBottom: 15 },
-  templateInput: {
-    flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 5,
-    padding: 10, marginRight: 10, fontSize: 16, color: '#333',
+  closeIconButton: {
+    padding: 4,
   },
-  addTemplateButton: {
-    backgroundColor: '#4CAF50', padding: 10, borderRadius: 5,
-    justifyContent: 'center', minWidth: 80,
+  closeIconText: {
+    fontSize: 18,
+    color: '#666',
   },
-  addTemplateButtonDisabled: { backgroundColor: '#ccc' },
-  closeButton: {
-    backgroundColor: '#2196F3', padding: 10,
-    borderRadius: 5, alignItems: 'center',
+  description: {
+    fontSize: 13,
+    color: '#555',
+    lineHeight: 18,
+    marginBottom: 16,
   },
-  buttonText: { color: '#FFFFFF', fontSize: 14, fontWeight: 'bold' },
+  sectionLabel: {
+    fontSize: 12,
+    color: '#777',
+    marginBottom: 4,
+  },
+  row: {
+    height: 44,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    backgroundColor: '#f9f9f9',
+  },
+  rowValue: {
+    fontSize: 16,
+    color: '#333',
+  },
+  rowIcon: {
+    fontSize: 16,
+    color: '#999',
+  },
+
+  // 前期/後期ボタン
+  termChipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  termChip: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#f7f7f7',
+  },
+  termChipSelected: {
+    backgroundColor: '#e0f2f1',
+    borderColor: '#26a69a',
+  },
+
+  // ピッカー
+  pickerBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  pickerContainer: {
+    backgroundColor: '#f8f8f8',
+  },
+  pickerHeader: {
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#ccc',
+    backgroundColor: '#fff',
+  },
+  pickerHeaderButton: {
+    fontSize: 16,
+    color: '#007aff',
+  },
+  pickerHeaderTitle: {
+    fontSize: 16,
+    color: '#333',
+  },
 });

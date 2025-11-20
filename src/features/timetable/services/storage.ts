@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
 import type { TimetableTemplate, Exam, Theme, Subject, ActiveTerm } from '../types';
 
+const buildPeriodKey = (year: number, term: ActiveTerm) => `${year}_${term}`;
+
 export const storageService = {
   async getTemplates(): Promise<TimetableTemplate[]> {
     try {
@@ -15,6 +17,36 @@ export const storageService = {
     } catch (error) {
       console.error('Error getting templates:', error);
       return [];
+    }
+  },
+
+  async getTemplateIdForPeriod(year: number, term: ActiveTerm): Promise<string | null> {
+    try {
+      const mapStr = await AsyncStorage.getItem(STORAGE_KEYS.TEMPLATE_BY_PERIOD);
+      if (!mapStr) return null;
+      const map = JSON.parse(mapStr) as Record<string, string>;
+      const key = buildPeriodKey(year, term);
+      return map[key] ?? null;
+    } catch (e) {
+      console.error('Error getTemplateIdForPeriod:', e);
+      return null;
+    }
+  },
+
+  async saveTemplateIdForPeriod(
+    year: number,
+    term: ActiveTerm,
+    templateId: string
+  ): Promise<void> {
+    try {
+      const mapStr = await AsyncStorage.getItem(STORAGE_KEYS.TEMPLATE_BY_PERIOD);
+      const map: Record<string, string> = mapStr ? JSON.parse(mapStr) : {};
+      const key = buildPeriodKey(year, term);
+      map[key] = templateId;
+      await AsyncStorage.setItem(STORAGE_KEYS.TEMPLATE_BY_PERIOD, JSON.stringify(map));
+    } catch (e) {
+      console.error('Error saveTemplateIdForPeriod:', e);
+      throw e;
     }
   },
 

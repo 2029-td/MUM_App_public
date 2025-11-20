@@ -20,7 +20,7 @@ import { useStyles } from '~/styles';
 import { TimetableGrid } from './components/Timetable/TimetableGrid';
 import { AttendanceModal } from './components/Timetable/AttendanceModal';
 import { CourseSelectionModal } from './components/Timetable/CourseSelectionModal';
-import { TemplateModal } from './components/Timetable/TemplateModal';
+import { YearTermModal } from './components/Timetable/TemplateModal';
 import { ExamList, ExamModal } from './components/Exam';
 import SearchCourseBox from './components/Timetable/SearchCourseBox';
 import { colorPalette } from './constants'; 
@@ -29,6 +29,8 @@ import { colorPalette } from './constants';
 import { storageService } from './services/storage';
 import { notificationService } from './services/notifications';
 import { loadTimetableFromCSV } from './services/timetableCsvParser';
+
+import { TemplateShareModal } from './components/Timetable/TemplateShareModal';
 
 import type { CourseData, Subject, Exam, ActiveTerm } from './types';
 
@@ -93,7 +95,10 @@ export default function Page() {
   useEffect(() => { if (accessToken) refetch(); }, [accessToken]);
 
   // === 学期（前期/後期のみ） ===
+  const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
   const [activeTerm, setActiveTerm] = useState<ActiveTerm>('前期');
+  const [isYearTermModalVisible, setIsYearTermModalVisible] = useState(false);
+  const [isShareModalVisible, setIsShareModalVisible] = useState(false);
 
   // === 状態 ===
   const [courseData, setCourseData] = useState<CourseData[]>([]);
@@ -108,7 +113,6 @@ export default function Page() {
 
   const [isAttendanceModalVisible, setIsAttendanceModalVisible] = useState<boolean>(false);
   const [isCourseModalVisible, setIsCourseModalVisible] = useState<boolean>(false);
-  const [isTemplateModalVisible, setIsTemplateModalVisible] = useState<boolean>(false);
   const [isExamModalVisible, setIsExamModalVisible] = useState<boolean>(false);
 
   // 初期化
@@ -140,6 +144,14 @@ export default function Page() {
       const savedTerm = await storageService.getActiveTerm();
       setActiveTerm(savedTerm);
 
+      // ★ ここで「今の年度＋学期」→ currentTemplateId を紐づけておく
+      const currentId = await storageService.getCurrentTemplateId();
+      await storageService.saveTemplateIdForPeriod(
+        activeYear,        // useState の初期値（今年）をそのまま使う
+        savedTerm,
+        currentId,
+      );
+
       // CSVから候補を読み込み
       const classes = await loadTimetableFromCSV();
       setCourseData(classes);
@@ -150,6 +162,48 @@ export default function Page() {
       setIsDataLoading(false);
     }
   };
+
+  // initializeApp の下あたりに追加
+
+const switchPeriod = useCallback(
+  async (year: number, term: ActiveTerm) => {
+    // まず state を変えて UI 上の表示を合わせる
+    setActiveYear(year);
+    setActiveTerm(term);
+    await storageService.saveActiveTerm(term);
+
+    // 1) 対応表から templateId を探す
+    let templateId = await storageService.getTemplateIdForPeriod(year, term);
+
+    // 2) なければ「この期間用のテンプレート」を新規作成
+    if (!templateId) {
+      // 空テンプレートを追加（既存の addTemplate を流用）
+      const name = `${year}年度${term}時間割`;
+      await addTemplate(name, {});   // timetable は空オブジェクト
+
+      const updatedTemplates = await storageService.getTemplates();
+      await setTemplates(updatedTemplates);
+
+      // いま追加したテンプレートの id（末尾の要素と仮定）
+      templateId = updatedTemplates[updatedTemplates.length - 1].id;
+
+      // 対応表に保存
+      await storageService.saveTemplateIdForPeriod(year, term, templateId);
+    } else {
+      // 対応表にある場合 → templates と currentTemplateId を揃える
+      const updatedTemplates = await storageService.getTemplates();
+      await setTemplates(updatedTemplates);
+    }
+
+    if (!templateId) return;
+
+    // 現在のテンプレートを切り替え
+    await setCurrentTemplateId(templateId);
+    await storageService.saveCurrentTemplateId(templateId);
+  },
+  [addTemplate, setTemplates, setCurrentTemplateId]
+);
+
 
   // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
   const coursesByActiveTerm = useMemo(() => {
@@ -260,6 +314,15 @@ export default function Page() {
                   時間割表
                 </Text>
                 <View style={styles.headerButtons}>
+                  {/* ← 左側：共有ボタン */}
+                  <TouchableOpacity
+                    style={styles.shareButton}
+                    onPress={() => setIsShareModalVisible(true)}
+                  >
+                    <Text style={styles.shareButtonText}>共有</Text>
+                  </TouchableOpacity>
+
+                  {/* ← 右側：年度/学期ボタン（今まで通り） */}
                   <Chip
                     mode="flat"
                     compact
@@ -269,9 +332,9 @@ export default function Page() {
                       borderWidth: 1,
                     }}
                     textStyle={{ color: theme.textColor }}
-                    onPress={() => setIsTemplateModalVisible(true)}
+                    onPress={() => setIsYearTermModalVisible(true)}
                   >
-                    <Text style={{ color: theme.textColor }}>テンプレート</Text>
+                    <Text style={{ color: theme.textColor }}>年度/学期</Text>
                   </Chip>
                 </View>
               </View>
@@ -495,32 +558,32 @@ export default function Page() {
           />
 
           {/* テンプレート & 学期モーダル（前期/後期のみ） */}
-          <TemplateModal
-            visible={isTemplateModalVisible}
-            templates={templates}
-            currentTemplateId={currentTemplateId}
+          <YearTermModal
+            visible={isYearTermModalVisible}
+            activeYear={activeYear}
             activeTerm={activeTerm}
-            onChangeTerm={setActiveTerm}
-            onClose={() => setIsTemplateModalVisible(false)}
-            onTemplateSelect={async (id) => {
-              await setCurrentTemplateId(id);
-              await storageService.saveCurrentTemplateId(id);
-              // 必要ならここで最新取得して反映
-              const updated = await storageService.getTemplates();
-              await setTemplates(updated);
+            // ✋ ここでは「選択値だけ変える」
+            onChangeYear={(year) => {
+              setActiveYear(year);
             }}
-            onTemplateAdd={async (name) => {
-              await addTemplate(name, {});
-              const updated = await storageService.getTemplates();
-              await setTemplates(updated);
+            onChangeTerm={(term) => {
+              setActiveTerm(term);
             }}
-            onTemplateDelete={async (id) => {
-              await deleteTemplate(id);
-              const updated = await storageService.getTemplates();
-              await setTemplates(updated);
+            // ✅ ✕ を押したタイミングでだけ switchPeriod
+            onClose={async () => {
+              await switchPeriod(activeYear, activeTerm); // ← ここで年度＋学期に応じたテンプレを切り替え
+              setIsYearTermModalVisible(false);
             }}
-            onTemplatesUpdate={async () => {
-              // ← ここをラップして引数なしにする
+          />
+
+          {/* テンプレ共有モーダル */}
+          <TemplateShareModal
+            visible={isShareModalVisible}
+            onClose={() => setIsShareModalVisible(false)}
+            templateId={currentTemplateId}
+            templateName={getCurrentTemplate()?.name ?? ''}
+            onImportSuccess={async () => {
+              // インポート後にテンプレ一覧を取り直して反映
               const updated = await storageService.getTemplates();
               await setTemplates(updated);
             }}
@@ -569,12 +632,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
+  headerButtons: {
+  flexDirection: 'row',
+  alignItems: 'center',
+},
+  shareButton: {
+    marginRight: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#ffffff88',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
-  },
-  headerButtons: {
-    flexDirection: 'row',
   },
   themeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',

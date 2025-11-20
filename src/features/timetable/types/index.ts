@@ -1,6 +1,11 @@
 // CSVファイルの「履修期」値として保持する型
 export type Term = '前期' | '後期' | '通年' | '';
 
+export interface ActivePeriod {
+  year: number;      // 2024 など
+  term: ActiveTerm;  // '前期' | '後期'
+}
+
 // 画面の学期フィルタ用（ユーザーが選択するのは前期/後期のみ）
 export type ActiveTerm = '前期' | '後期';
 
@@ -50,6 +55,7 @@ export interface TimetableTemplate {
   name: string;
   timetable: Timetable;
   examIds: string[];  // 関連する試験のID配列
+  year: number
 }
 
 // 試験の型
