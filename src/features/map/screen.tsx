@@ -32,7 +32,7 @@ const App: React.FC = () => {
   const [selectedClassItem, setSelectedClassItem] = useState<MapItem | null>(null); // 授業検索
   const [selectedLabItem, setSelectedLabItem] = useState<MapItem | null>(null); // 研究室検索
   const [allClasses, setAllClasses] = useState<ClassInfo[]>([]); // 授業データを外部 CSV から読み込む
-  const [classInfo, setClassInfo] = useState<{ name: string; room: string; teacher: string } | null>(null); // 授業検索で選択された詳細
+  const [classInfo, setClassInfo] = useState<{ name: string; room: string; teacher: string; campus: string; } | null>(null); // 授業検索で選択された詳細
   const [labInfo, setLabInfo] = useState<{ name: string; room: string } | null>(null); // 研究室情報
   const [searchQuery, setSearchQuery] = useState(''); // 検索ボックスの入力内容を初期化
   const [searchResults, setSearchResults] = useState<{ type: 'building' | 'class' | 'lab'; data: string; meta?: any }[]>([]); //　検索結果一覧
@@ -176,28 +176,34 @@ const App: React.FC = () => {
     setSearchQuery(query); // 入力された値queryをsearchQueryに設定
 
     // 建物の検索
-    const buildingResults: { type: "building"; data: string; meta: MapItem }[] = mapItems
+    const buildingResults: {
+      type: "building"; 
+      data: string; 
+      meta: MapItem 
+    }[] = mapItems
       .filter(item => item.info[0].includes(query))
       .map(item => ({ type: 'building' as const, data: item.info[0], meta: item }));
 
     // 授業の検索
-    const classResults: { type: "class"; data: string; meta: { name: string; room: string; teacher: string; building: MapItem } }[] =
-      allClasses
-        .filter(cls => cls.name.includes(query) || cls.teacher.includes(query))
-        .map(cls => {
-          const building = mapItems.find(b => b.id === cls.buildingId) ?? mapItems.find(b => b.id === '0'); // 建物IDで建物を取得
-          return {
-            type: 'class' as const,
-            data: `${cls.name}（${cls.teacher}）`,
-            meta: { 
-              name: cls.name, 
-              room: cls.room, 
-              teacher: cls.teacher, 
-              building: building! // !でbuildingの存在を保証
-            },
-          };
-        }
-      );
+    const classResults: { 
+      type: "class"; 
+      data: string; 
+      meta: { name: string; room: string; teacher: string; campus: string; building?: MapItem } 
+    }[] = allClasses
+      .filter(cls => cls.name.includes(query) || cls.teacher.includes(query))
+      .map(cls => {
+        // 船橋校舎のみマップ上の建物と紐付ける
+        const building = 
+          cls.campus === '船橋' && cls.buildingId
+            ? mapItems.find(b => b.id === cls.buildingId) // 建物IDで建物を取得
+            : undefined;
+
+        return {
+          type: 'class' as const,
+          data: `${cls.name}（${cls.teacher}）`,
+          meta: { name: cls.name, room: cls.room, teacher: cls.teacher, campus: cls.campus, ...(building ? { building } : {}),},
+        };
+      });
 
     // 研究室の検索
     const labResults: { type: "lab"; data: string; meta: { name: string; room: string; building: MapItem } }[] =labData.filter(lab => lab.name.includes(query)).map(lab => {
@@ -220,8 +226,16 @@ const App: React.FC = () => {
       setSelectedItem(result.meta);
     } else if (result.type === 'class' && result.meta) {
       reset(); // リセット関数呼び出し
-      setSelectedClassItem(result.meta.building);
-      setClassInfo({ name: result.meta.name, room: result.meta.room, teacher: result.meta.teacher });
+      // 船橋校舎の授業のみマップの建物を選択（駿河台は building が undefined）
+      if (result.meta.building) {
+        setSelectedClassItem(result.meta.building);
+      }
+      setClassInfo({ 
+        name: result.meta.name, 
+        room: result.meta.room, 
+        teacher: result.meta.teacher,
+        campus: result.meta.campus,
+      });
     } else if (result.type === 'lab' && result.meta) {
       reset(); // リセット関数呼び出し
       setSelectedLabItem(result.meta.building);
@@ -427,46 +441,79 @@ const App: React.FC = () => {
         )}
       </View>
 
-      {/* ポップアップ（固定配置） */}
+      {/* ポップアップ（建物タップ時） */}
       {selectedItem && (
         <View style={styles.popup}>
+          {/* 閉じるボタン */}
+          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+            <Icon name="close" size={20} color="#000" />
+          </TouchableOpacity>
+
+          {/* 情報エリア */}
           <Text style={styles.popupText}>
             {Array.isArray(selectedItem.info) ? selectedItem.info.join('\n') : selectedItem.info}
           </Text>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
-      )}
-      {classInfo && selectedClassItem && (
-        <View style={styles.popup}>
-          <Text style={styles.popupText}>
-            授業名：{classInfo.name}（{classInfo.teacher}）{'\n'}
-            教室：{classInfo.room}
-          </Text>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={24} color="#000" />
-          </TouchableOpacity>
-        </View>
-      )}
-      {labInfo && selectedLabItem && (
-        <View style={styles.popup}>
-          <Text style={styles.popupText}>
-            研究室名：{labInfo.name}{'\n'}
-            教室：{labInfo.room}
-          </Text>
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={24} color="#000" />
-          </TouchableOpacity>
         </View>
       )}
 
-      {/* 自動販売機フィルターボタン（固定配置） */}
+      {/* ポップアップ（授業検索時） */}
+      {classInfo && (
+        <View style={styles.popup}>
+          {/* 閉じるボタン */}
+          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+            <Icon name="close" size={20} color="#000" />
+          </TouchableOpacity>
+
+          {/* 情報エリア */}
+          <View style={styles.popupTextContainer}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>授業：</Text>
+              <Text style={styles.infoValue}>{classInfo.name}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>教室：</Text>
+              <Text style={styles.infoValue}>{classInfo.room}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>校舎：</Text>
+              <Text style={styles.infoValue}>{classInfo.campus}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>教員：</Text>
+              <Text style={styles.infoValue}>{classInfo.teacher}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* ポップアップ（研究室検索時） */}
+      {labInfo && selectedLabItem && (
+        <View style={styles.popup}>
+          {/* 閉じるボタン */}
+          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+            <Icon name="close" size={20} color="#000" />
+          </TouchableOpacity>
+
+          {/* 情報エリア */}
+          <View style={styles.popupTextContainer}>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>研究室：</Text>
+              <Text style={styles.infoValue}>{labInfo.name}</Text>
+            </View>
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>教室　：</Text>
+              <Text style={styles.infoValue}>{labInfo.room}</Text>
+            </View>
+          </View>
+        </View>
+      )}
+
+      {/* 自動販売機フィルターボタン */}
       <TouchableOpacity style={styles.filterButton} onPress={toggleVendingMachines} hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}>
         <Image source={require('./assets/icons/vending_machine_filter.png')} style={styles.filterIcon} />
       </TouchableOpacity>
 
-      {/* 拡大・縮小ボタン（固定配置） */}
+      {/* 拡大・縮小ボタン */}
       <View style={styles.zoomButtonsContainer}>
         {/* 拡大ボタン */}
         <TouchableOpacity
@@ -523,15 +570,17 @@ const styles = StyleSheet.create({
   // ポップアップ
   popup: {
     position: 'absolute',
-    bottom: 20,
-    left: 20,
-    right: 20,
+    bottom: 15,
+    left: 15,
+    right: 15,
     backgroundColor: 'white',
-    padding: 20,
+    paddingTop: 20, // 上に余白を作る（閉じるボタン用）
+    paddingBottom: 20,
+    paddingLeft: 15,
+    paddingRight: 15,
     borderRadius: 10,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: 'column',
+    alignItems: 'stretch',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -539,8 +588,34 @@ const styles = StyleSheet.create({
     elevation: 10,
     zIndex: 100,
   },
-  popupText: { flex: 1, fontSize: 16 },
-  closeButton: { padding: 5 },
+  popupText: { 
+    flex: 1, 
+    fontSize: 15 
+  },
+  popupTextContainer: {
+    flex: 1, // 残り幅を全部使う
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+  },
+  infoLabel: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginRight: 4, // ラベルと値の間に少しだけ余白
+  },
+  infoValue: {
+    flex: 1, // 残り幅を全部使う
+    fontSize: 15,
+    lineHeight: 20,
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 3,
+    right: 3,
+    padding: 3,
+    zIndex: 10, 
+    },
 
   // 検索
   searchBar: { 

@@ -1,3 +1,5 @@
+// src/features/map/constants/labData.ts
+
 export interface LabInfo {
   name: string; // 研究室名
   room: string; // 教室

@@ -1,3 +1,5 @@
+// src/features/map/constants/mapData.ts
+
 export interface MapItem {
   id: string;
   x: number | null;

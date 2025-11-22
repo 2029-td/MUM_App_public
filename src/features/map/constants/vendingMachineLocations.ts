@@ -1,3 +1,5 @@
+// src/features/map/constants/vendingMachineLocations.ts
+
 export interface VendingMachineLocation {
   id: string;
   x: number;
