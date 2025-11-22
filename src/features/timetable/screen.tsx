@@ -318,17 +318,28 @@ const switchPeriod = useCallback(
             >
               {/* ヘッダー部分 */}
               <View style={styles.header}> 
+                {/* タイトル */}
                 <Text style={[styles.title, { color: getCurrentTheme().textColor }]}>
                   時間割表
                 </Text>
+
+                {/* 共有ボタンと年度/学期ボタン */}
                 <View style={styles.headerButtons}>
-                  {/* ここに共有ボタン */}
-                  <TouchableOpacity
-                    style={styles.shareButton}
-                    onPress={() => setIsShareModalVisible(true)}   // ★ ここで true にする
+                  {/* 共有ボタン */}
+                  <Chip
+                    mode="flat"
+                    compact
+                    style={{
+                      marginRight: 8,
+                      backgroundColor: colors.surfaceSolid,
+                      borderColor: colors.border,
+                      borderWidth: 1,
+                    }}
+                    textStyle={{ color: theme.textColor }}
+                    onPress={() => setIsShareModalVisible(true)}
                   >
-                    <Text style={styles.shareButtonText}>共有</Text>
-                  </TouchableOpacity>
+                    共有
+                  </Chip>
 
                   <Chip
                     mode="flat"
@@ -341,7 +352,7 @@ const switchPeriod = useCallback(
                     textStyle={{ color: theme.textColor }}
                     onPress={() => setIsYearTermModalVisible(true)}
                   >
-                    <Text style={{ color: theme.textColor }}>年度/学期</Text>
+                    年度/学期
                   </Chip>
                 </View>
               </View>
@@ -606,104 +617,97 @@ const switchPeriod = useCallback(
 }
 
 const styles = StyleSheet.create({
+  // ==== 画面全体レイアウト ====
+  // 画面いっぱいに広げるための基本コンテナ
   container: { 
     flex: 1 
   },
+
+  // ==== ローディング画面関連 ====
+  // ローディング中に中央にスピナーと文字を出すコンテナ
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
   },
+  // 「読み込み中...」のテキストスタイル
   loadingText: {
     marginTop: 10,
     fontSize: 16,
     color: '#666',
   },
-  loginButton: {
-    backgroundColor: '#4285F4',
-    padding: 12,
-    borderRadius: 4,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
+  // ==== スクロール / 背景 ====
+  // 縦方向にスクロールさせるためのラッパ
   scrollView: {
     flex: 1,
   },
+  // LinearGradient の内側コンテナ（全体の余白をここで確保）
   gradientBackground: {
     flex: 1,
     padding: 10,
   },
+
+  // ==== ヘッダー（タイトル + 共有 / 年度・学期ボタン） ====
+  // 左にタイトル、右にボタンを並べる横並びレイアウト
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 10,
   },
+  // 右側の Chip（共有 / 年度・学期）を横並びにするコンテナ
   headerButtons: {
-  flexDirection: 'row',
-  alignItems: 'center',
-},
-  shareButton: {
-    marginRight: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#ffffff88',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  shareButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  // 「時間割表」のタイトルスタイル
   title: {
     fontSize: 20,
     fontWeight: 'bold',
   },
-  themeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 8,
-    borderRadius: 5,
-    marginRight: 10,
-  },
+  
+  // ==== 試験一覧セクション ====
+  // 時間割グリッドの下に表示される試験リスト周りの余白
   examSection: {
     marginTop: 20,
     marginBottom: 20,
   },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  // Google カレンダーセクション用スタイル
+
+  // ==== Google カレンダー「今後の予定」セクション ====
+  // カレンダーのブロック全体の余白
   calendarSection: {
     marginVertical: 20,
     paddingHorizontal: 10,
   },
+  // 「今後の予定」のタイトル
   calendarTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     marginBottom: 8,
   },
+  // 各予定（1行分）のコンテナ
   eventItem: {
     marginBottom: 6,
   },
+  // 予定タイトルのテキスト
   eventTitle: {
     fontSize: 16,
   },
+  // 予定の時間表示
   eventTime: {
     fontSize: 14,
     opacity: 0.8,
   },
+
+  // ==== メッセージ系（エラー / 情報） ====
+  // 予定取得失敗時などに表示するエラーメッセージ
   errorText: {
     fontSize: 14,
     marginVertical: 4,
   },
+  // 情報メッセージ用（例: 予定がないときなど）
   infoText: {
     fontSize: 14,
     color: '#888',
