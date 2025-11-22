@@ -357,7 +357,7 @@ const switchPeriod = useCallback(
 
                   const periods = course.時限.split(',').map(p => p.trim());
 
-                  // ★ 色を決める
+                  // 色を決める
                   const timetable = getCurrentTemplate()?.timetable || {};
                   const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
                   const decidedColor =
@@ -366,11 +366,12 @@ const switchPeriod = useCallback(
 
                   const subject: Subject = {
                     id: `${course.曜日}-${periods[0]}-${course.科目名}`,
+                    campus: course.設置校舎,
                     name: course.科目名,
                     professor: course.教員,
                     credits: course.単位,
                     term: course.履修期,
-                    color: decidedColor,           // ← ここだけ追加
+                    color: decidedColor, 
                     notifications: true,
                     room: course.教室 ?? '',
                     attendance: 0,
@@ -453,6 +454,7 @@ const switchPeriod = useCallback(
 
               const subject: Subject = {
                 id: `${selectedDay}-${periods[0]}-${course.科目名}`,
+                campus: course.設置校舎,
                 name: course.科目名,
                 professor: course.教員,
                 credits: course.単位,
@@ -569,14 +571,14 @@ const switchPeriod = useCallback(
             visible={isYearTermModalVisible}
             activeYear={activeYear}
             activeTerm={activeTerm}
-            activeGrade={activeGrade}                    // ★ 追加
+            activeGrade={activeGrade}
             onChangeYear={(year) => {
               setActiveYear(year);
             }}
             onChangeTerm={(term) => {
               setActiveTerm(term);
             }}
-            onChangeGrade={(grade) => {                  // ★ 追加
+            onChangeGrade={(grade) => {
               setActiveGrade(grade);
             }}
             onClose={async () => {

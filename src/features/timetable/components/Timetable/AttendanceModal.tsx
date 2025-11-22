@@ -1,3 +1,5 @@
+// src/features/timetable/components/Timetable/AttendanceModal.tsx
+
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   View, Text, TouchableOpacity, Modal, StyleSheet,
@@ -107,15 +109,30 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
               <Text style={styles.modalTitle}>{localSubject.name}</Text>
 
               <View style={styles.subjectDetailContainer}>
+                {/* 教員 */}
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>教員：</Text>
-                  <Text style={styles.subjectDetailValue} numberOfLines={0}>
-                    {localSubject.professor}
-                  </Text>
+                  <Text style={styles.subjectDetailValue} numberOfLines={0}>{localSubject.professor}</Text>
                 </View>
+
+                {/* 教室 */}
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>教室：</Text>
                   <Text style={styles.subjectDetailValue}>{localSubject.room}</Text>
+                </View>
+
+                {/* 校舎 */}
+                <View style={styles.subjectDetailRow}>
+                  <Text style={styles.subjectDetailLabel}>校舎：</Text>
+                  <Text style={styles.subjectDetailValue}>{localSubject.campus}</Text>
+                </View>
+
+                {/* 単位 */}
+                <View style={styles.subjectDetailRow}>
+                  <Text style={styles.subjectDetailLabel}>単位：</Text>
+                  <Text style={styles.subjectDetailValue}>
+                    {localSubject.credits && localSubject.credits > 0 ? `${localSubject.credits}` : '-'}
+                  </Text>
                 </View>
               </View>
 
@@ -241,22 +258,29 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
 export default AttendanceModal; // named と default の両方をエクスポート
 
 const styles = StyleSheet.create({
+  // モーダル全体の背景（半透明黒 + 中央配置）
   modalContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center', // 縦方向中央
+    alignItems: 'center', // 横方向中央
+    paddingHorizontal: 12, // 端から少し内側に
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // 黒の半透明
   },
+  // モーダルのカード本体
   modalCard: {
     width: '100%',
     maxWidth: 560,
-    maxHeight: '90%',
-    borderRadius: 12,
+    maxHeight: '90%', // 高さは画面の9割まで
+    borderRadius: 12, // 角丸
     backgroundColor: '#fff',
-    overflow: 'hidden',
+    overflow: 'hidden', // はみ出し防止
   },
-  cardBody: { padding: 20 },
+  // モーダル内部のコンテンツ部分
+  cardBody: { 
+    padding: 20 
+  },
+
+  // 科目名のタイトル
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -264,31 +288,65 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     color: '#333',
   },
+  // 科目詳細のグレー枠（教員・教室など）
   subjectDetailContainer: {
     backgroundColor: '#f5f5f5',
     padding: 15,
     borderRadius: 8,
     marginBottom: 15,
   },
+  // 「教員：◯◯」などの横並び行
   subjectDetailRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'flex-start', // 複数行になることがあるので上揃え
     marginBottom: 8,
   },
-  subjectDetailLabel: { fontSize: 14, color: '#666666' },
-  subjectDetailValue: {
+  // 「教員：」「教室：」などのラベル側
+  subjectDetailLabel: {
     fontSize: 14,
-    color: '#333333',
-    fontWeight: 'bold',
-    flexShrink: 1,
-    flexWrap: 'wrap',
+    fontWeight: 'bold', // ラベルは太字
+    color: '#000',
+    marginRight: 4,
+  },
+  // 実際の内容テキスト側
+  subjectDetailValue: {
+    flex: 1,
+    fontSize: 14,
+    color: '#000', // 内容は通常の黒
+    lineHeight: 20,
+    flexWrap: 'wrap', // 折り返し対応
   },
 
+  // 進捗と出席率表示の枠
+  progressRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between', // 左右に分ける
+    alignItems: 'center',
+    backgroundColor: '#e8f5e9', // 薄い緑
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 15,
+  },
+  // 「授業回数進捗: ◯/15」
+  progressLeft: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#333' 
+  },
+  // 「出席率: ◯%」
+  progressRight: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    color: '#4caf50' 
+  },
+
+  // 3つのカード全体の横並び
   attendanceRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
   },
+  // 出席 / 欠席 / 遅刻 それぞれのカード
   attendanceGroup: {
     flex: 1,
     borderWidth: 2,
@@ -297,9 +355,26 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     marginHorizontal: 4,
   },
-  groupTitle: { fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
-  countValue: { fontSize: 28, fontWeight: 'bold', color: '#333', marginBottom: 10 },
-  stepperRow: { flexDirection: 'row', justifyContent: 'space-between', width: 90 },
+  // カード上部のタイトル
+  groupTitle: { 
+    fontSize: 16, 
+    fontWeight: 'bold', 
+    marginBottom: 6 
+  },
+  // 出席数の数字
+  countValue: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: '#333', 
+    marginBottom: 10 
+  },
+  // + と − ボタンの横並びエリア
+  stepperRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    width: 90 
+  },
+  // + / - ボタン本体
   stepperCircle: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -310,25 +385,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ccc',
   },
-  stepperSign: { fontSize: 22, fontWeight: '700', color: '#333' },
-
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: '#e8f5e9',
-    borderRadius: 5,
-    padding: 10,
-    marginBottom: 15,
+  // + / - の文字
+  stepperSign: { 
+    fontSize: 22, 
+    fontWeight: '700', 
+    color: '#333' 
   },
-  progressLeft: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  progressRight: { fontSize: 16, fontWeight: 'bold', color: '#4caf50' },
 
-  // 右上の設定ボタン（・・・）
+  // 右上の設定ボタン（•••）
   settingsButton: {
     position: 'absolute',
     top: 8,
-    right: 44, // ← ここをずらして右側にバツボタンを置く余白を作る
+    right: 44, // × ボタンの左側に配置
     zIndex: 10,
     width: 36,
     height: 36,
@@ -336,9 +404,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsButtonText: { fontSize: 24, lineHeight: 24, color: '#555' },
+  settingsButtonText: { 
+    fontSize: 24, 
+    lineHeight: 24, 
+    color: '#555' 
+  },
 
-  // 右上のバツボタン（・・・の右隣）
+  // 右上の×ボタン
   closeButton: {
     position: 'absolute',
     top: 8,
@@ -350,5 +422,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButtonText: { fontSize: 24, lineHeight: 24, color: '#555' },
+  closeButtonText: { 
+    fontSize: 24, 
+    lineHeight: 24, 
+    color: '#555' 
+  },
 });

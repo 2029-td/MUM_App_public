@@ -1,3 +1,5 @@
+// src/features/timetable/types/index.ts
+
 // CSVファイルの「履修期」値として保持する型
 export type Term = '前期' | '後期' | '通年' | '';
 
@@ -11,6 +13,7 @@ export type ActiveTerm = '前期' | '後期';
 
 // CSVファイルから取得する科目データの型
 export interface CourseData {
+  設置校舎: string;
   学年: number;
   科目名: string;
   教員: string;
@@ -26,6 +29,7 @@ export interface CourseData {
 // 時間割に登録される科目の型
 export interface Subject {
   id: string;
+  campus: string;       // 設置校舎
   name: string;         // 科目名
   professor: string;    // 教員
   credits: number;      // 単位数

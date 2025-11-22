@@ -1,3 +1,5 @@
+// src/features/timetable/services/timetableCsvParser.ts
+
 import { Asset } from 'expo-asset';
 import * as FileSystem from 'expo-file-system/legacy';
 import Papa from 'papaparse';
@@ -29,12 +31,13 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
 
   const findIdx = (name: string) => header.findIndex(h => h === name);
 
+  const campusIdx    = findIdx('設置校舎');
+  const gradeIdx   = findIdx('学年');
   const termIdx   = findIdx('履修期名') > -1 ? findIdx('履修期名') : findIdx('履修期');
   const subjectIdx = findIdx('科目名');
   const dayIdx     = findIdx('曜日');
   const noteIdx    = findIdx('特記事項');
   const creditIdx  = findIdx('単位');
-  const gradeIdx   = findIdx('学年');          // ★ 学年列の index
 
   const periodIndexes = [1, 2, 3, 4, 5, 6].map(p => findIdx(p.toString()));
   const teacherIndexes = header.map((h, i) => (h === '教員' ? i : -1)).filter(i => i >= 0);
@@ -71,6 +74,10 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
       }
     }
 
+    // 設置校舎
+    const campus = campusIdx >= 0 ? (row[campusIdx] ?? '').toString().trim() : '';
+
+    // ○ のついている時限を集める
     const periods: string[] = [];
     periodIndexes.forEach((idx, i) => {
       const mark = (idx >= 0 ? row[idx] : '')?.trim();
@@ -78,6 +85,7 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
     });
     if (periods.length === 0) continue;
 
+    // 単位
     let credit = 0;
     if (creditIdx >= 0) {
       const v = (row[creditIdx] ?? '').toString().trim();
@@ -86,7 +94,8 @@ export const loadTimetableFromCSV = async (): Promise<CourseData[]> => {
     }
 
     courses.push({
-      学年: grade,               // ★ ここでセット
+      設置校舎: campus,
+      学年: grade, 
       科目名: subject,
       教員: teachers,
       教室: rooms,
