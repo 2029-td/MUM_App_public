@@ -115,11 +115,21 @@ const TodoList: React.FC = () => {
     data: Omit<Todo, 'id' | 'completed'> & { recurring?: boolean }
   ) => {
     const now = new Date();
+
     if (editingTodo) {
-      updateTodo({ ...data, id: editingTodo.id, completed: editingTodo.completed });
+      // ★ 編集前の createdAt をそのまま引き継ぐ
+      updateTodo({
+        ...editingTodo,          // もともとの todo をベースに
+        ...data,                 // 入力内容で上書き
+        id: editingTodo.id,
+        completed: editingTodo.completed,
+        createdAt: (editingTodo as any).createdAt ?? now,
+      });
     } else {
+      // 新規作成時だけ現在時刻を入れる
       addTodo({ ...data, createdAt: now } as Todo & { createdAt: Date });
     }
+
     setShowModal(false);
     setTimeout(() => setEditingTodo(null), 200);
   };
@@ -153,8 +163,10 @@ const TodoList: React.FC = () => {
         sortBy={sortBy}
         sortOrder={sortOrder}
         onChangeSort={(by, order) => {
+          setSortBy(by);      // ← これが抜けている
           setSortOrder(order);
         }}
+        onToggleComplete={toggleComplete}
       />
 
       {/* 追加ボタン */}

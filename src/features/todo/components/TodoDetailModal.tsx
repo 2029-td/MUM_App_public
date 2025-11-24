@@ -100,7 +100,7 @@ const TodoDetailModal: React.FC<TodoDetailModalProps> = ({
             buttonColor={colors.surface}
             textColor={theme.textColor}
           >
-            {localCompleted ? '完了' : '未完了'}
+            {localCompleted ? '未完了' : '完了'}
           </Button>
 
           <Button

@@ -6,6 +6,10 @@ import {
   Keyboard,
   TouchableWithoutFeedback,
   Platform,
+  Pressable,              // ★ 追加：背景タップ用
+  findNodeHandle,         // ★ 追加：位置計測用
+  UIManager, 
+  ScrollView             // ★ 追加：位置計測用
 } from 'react-native';
 import {
   Modal,
@@ -13,10 +17,10 @@ import {
   Button,
   Paragraph,
   IconButton,
-  Menu,
   Chip,
   Checkbox,
   RadioButton,
+  TouchableRipple,        // ★ 追加：ポップアウト内の行
 } from 'react-native-paper';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Todo } from '../types';
@@ -45,8 +49,13 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
   const [newTagInput, setNewTagInput] = useState('');
   const [dueDate, setDueDate] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // ── タグ選択用 ──
   const [tagMenuVisible, setTagMenuVisible] = useState(false);
   const [selectingNewTag, setSelectingNewTag] = useState(false);
+  const tagChipWrapperRef = useRef<View | null>(null);
+  const [tagAnchor, setTagAnchor] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
   const [recurring, setRecurring] = useState(false);
   const [platform, setPlatform] = useState<'classroom' | 'canvas' | 'moodle' | null>(null);
 
@@ -63,6 +72,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
       setNewTagInput('');
       setSelectingNewTag(false);
       setShowDatePicker(false);
+      setTagMenuVisible(false);
     } else if (visible) {
       resetForm();
     }
@@ -77,6 +87,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
     setPlatform(null);
     setNewTagInput('');
     setSelectingNewTag(false);
+    setTagMenuVisible(false);
   };
 
   const handleSubmit = () => {
@@ -94,6 +105,61 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
     }
   };
 
+  // ── タグポップアウトを開く ──
+  const openTagMenu = () => {
+    const handle = findNodeHandle(tagChipWrapperRef.current);
+    if (!handle) return;
+    UIManager.measureInWindow(handle, (x, y, width, height) => {
+      const GAP = -12;
+      setTagAnchor({ x, y: y + height + GAP });
+      setTagMenuVisible(true);
+    });
+  };
+
+  // ── 共通ポップアウトコンテナ（タグ用） ──
+  const TagPopup: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    if (!tagMenuVisible) return null;
+    return (
+      <Portal>
+        <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
+          {/* 背景タップで閉じる */}
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setTagMenuVisible(false)} />
+
+          <View
+            style={{
+              position: 'absolute',
+              top: tagAnchor.y,
+              left: tagAnchor.x,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: colors.surfaceSolid,
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: 0.25,
+                shadowRadius: 8,
+                elevation: 8,
+                minWidth: 180,
+                maxHeight: 260,    // ★ ここがポイント：最大高さ
+              }}
+            >
+              <ScrollView
+                style={{ overflow: 'hidden' }}
+                contentContainerStyle={{ paddingVertical: 4 }}
+              >
+                {children}
+              </ScrollView>
+            </View>
+          </View>
+        </View>
+      </Portal>
+    );
+  };
+
   return (
     <Portal>
       <Modal
@@ -103,10 +169,8 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
         contentContainerStyle={[
           styles.modalContent,
           {
-            // ★ モーダルの外側カードは ToDo リストの背景色と同じに
             backgroundColor: colors.background,
             borderRadius: 16,
-            // 背景と同色でも浮かせるため、薄い枠＋影を入れておく
             borderWidth: 1,
             borderColor: colors.border,
             shadowColor: '#000',
@@ -133,7 +197,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
               style={[
                 styles.input,
                 {
-                  backgroundColor: colors.inputBg,   // ★ 入力欄は白(ライト/デフォ) or 濃色(ダーク)
+                  backgroundColor: colors.inputBg,
                   color: colors.inputText,
                   borderColor: colors.border,
                 },
@@ -147,50 +211,68 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
 
             {/* タグ選択 */}
             <Paragraph style={[styles.label, { color: theme.textColor }]}>タグを選択</Paragraph>
-            <Menu
-              visible={tagMenuVisible}
-              onDismiss={() => setTagMenuVisible(false)}
-              anchor={
-                <Chip
-                  onPress={() => setTagMenuVisible(true)}
-                  mode="flat"
-                  style={[
-                    styles.chip,
-                    { backgroundColor: colors.surfaceSolid, borderColor: colors.border, borderWidth: 1 },
-                  ]}
-                  textStyle={{ color: colors.text }}
-                >
-                  {selectingNewTag ? newTagInput || '新しいタグを追加' : category || 'タグを選択する'}
-                </Chip>
-              }
-              contentStyle={{
-                backgroundColor: colors.surfaceSolid, // ★ メニュー地を不透明に
-                borderRadius: 12,
-              }}
-            >
+            <View ref={tagChipWrapperRef} collapsable={false}>
+              <Chip
+                onPress={openTagMenu}
+                mode="flat"
+                style={[
+                  styles.chip,
+                  {
+                    backgroundColor: colors.surfaceSolid,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                  },
+                ]}
+                textStyle={{ color: colors.text }}
+              >
+                {selectingNewTag
+                  ? newTagInput || '新しいタグを追加'
+                  : category || 'タグを選択する'}
+              </Chip>
+            </View>
+
+            {/* タグのポップアウト */}
+            <TagPopup>
+              <TouchableRipple
+                onPress={() => {
+                  setSelectingNewTag(true);
+                  setCategory('');
+                  setTagMenuVisible(false);
+                  // 次のレンダリングで新タグ入力にフォーカスしたければ setTimeout で newTagRef.current?.focus() してもOK
+                }}
+              >
+                <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+                  <Paragraph
+                    style={{
+                      color: theme.textColor,
+                      fontSize: 16,
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    + 新たなタグを追加
+                  </Paragraph>
+                </View>
+              </TouchableRipple>
+
               {existingTags.map(tag => (
-                <Menu.Item
+                <TouchableRipple
                   key={tag}
-                  title={tag}
-                  titleStyle={{ color: theme.textColor }}
                   onPress={() => {
                     setCategory(tag);
                     setSelectingNewTag(false);
                     setNewTagInput('');
                     setTagMenuVisible(false);
                   }}
-                />
+                >
+                  <View style={{ paddingHorizontal: 14, paddingVertical: 10 }}>
+                    <Paragraph style={{ color: theme.textColor, fontSize: 16 }}>
+                      {tag}
+                    </Paragraph>
+                  </View>
+                </TouchableRipple>
               ))}
-              <Menu.Item
-                title="+新たなタグを追加"
-                onPress={() => {
-                  setSelectingNewTag(true);
-                  setCategory('');
-                  setTagMenuVisible(false);
-                }}
-                titleStyle={{ color: theme.textColor, fontWeight: 'bold' }}
-              />
-            </Menu>
+            </TagPopup>
+
             {selectingNewTag && (
               <TextInput
                 ref={newTagRef}
@@ -199,7 +281,11 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                 onChangeText={setNewTagInput}
                 style={[
                   styles.input,
-                  { backgroundColor: colors.inputBg, color: colors.inputText, borderColor: colors.border },
+                  {
+                    backgroundColor: colors.inputBg,
+                    color: colors.inputText,
+                    borderColor: colors.border,
+                  },
                 ]}
                 selectionColor={theme.textColor}
                 placeholderTextColor={
@@ -220,12 +306,12 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                     <RadioButton.Android
                       value="classroom"
                       status={platform === 'classroom' ? 'checked' : 'unchecked'}
-                      onPress={() => 
+                      onPress={() =>
                         setPlatform(platform === 'classroom' ? null : 'classroom')
                       }
                       color={theme.textColor}
                     />
-                    <Paragraph 
+                    <Paragraph
                       style={{ color: theme.textColor, flexShrink: 1 }}
                       onPress={() =>
                         setPlatform(platform === 'classroom' ? null : 'classroom')
@@ -239,12 +325,12 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                     <RadioButton.Android
                       value="moodle"
                       status={platform === 'moodle' ? 'checked' : 'unchecked'}
-                      onPress={() => 
+                      onPress={() =>
                         setPlatform(platform === 'moodle' ? null : 'moodle')
                       }
                       color={theme.textColor}
                     />
-                    <Paragraph 
+                    <Paragraph
                       style={{ color: theme.textColor, flexShrink: 1 }}
                       onPress={() =>
                         setPlatform(platform === 'moodle' ? null : 'moodle')
@@ -258,12 +344,12 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                     <RadioButton.Android
                       value="canvas"
                       status={platform === 'canvas' ? 'checked' : 'unchecked'}
-                      onPress={() => 
+                      onPress={() =>
                         setPlatform(platform === 'canvas' ? null : 'canvas')
                       }
                       color={theme.textColor}
                     />
-                    <Paragraph 
+                    <Paragraph
                       style={{ color: theme.textColor, flexShrink: 1 }}
                       onPress={() =>
                         setPlatform(platform === 'canvas' ? null : 'canvas')
@@ -282,42 +368,56 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
               mode="contained"
               style={[
                 styles.dateButton,
-                { backgroundColor: colors.surfaceSolid, borderColor: colors.border, borderWidth: 1 },
+                {
+                  backgroundColor: colors.surfaceSolid,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
               ]}
               buttonColor={colors.modalSurface}
               textColor={colors.text}
             >
-              {dueDate ? `期限: ${dueDate.toLocaleDateString()}（タップで削除）` : '期限を設定'}
+              {dueDate
+                ? `期限: ${dueDate.toLocaleDateString()}（タップで削除）`
+                : '期限を設定'}
             </Button>
 
-            {/* 期限設定ボタンの直後 */}
-            {showDatePicker && (
-              Platform.OS === 'ios' ? (
-                // ← iOS は白いカードでラップして白背景のカレンダーに
+            {showDatePicker &&
+              (Platform.OS === 'ios' ? (
                 <View
                   style={[
                     styles.iosPickerCard,
-                    { borderColor: colors.border }, // テーマの枠線色を反映
+                    { borderColor: colors.border },
                   ]}
                 >
                   <DateTimePicker
                     value={dueDate || new Date()}
                     mode="date"
-                    display="inline"          // カレンダー表示
-                    themeVariant="light"      // iOS: ライトテーマを強制（白ベース）
+                    display="inline"
+                    themeVariant="light"
                     onChange={(_, selected) => {
                       setShowDatePicker(false);
                       if (selected) {
                         const d = new Date(selected);
-                        const normalized = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+                        const normalized = new Date(
+                          d.getFullYear(),
+                          d.getMonth(),
+                          d.getDate(),
+                          0,
+                          0,
+                          0,
+                          0
+                        );
                         setDueDate(normalized);
                       }
                     }}
-                    style={{ alignSelf: 'stretch', backgroundColor: '#fff' }} // 念のため白を指定
+                    style={{
+                      alignSelf: 'stretch',
+                      backgroundColor: '#fff',
+                    }}
                   />
                 </View>
               ) : (
-                // ← Android は従来どおり（ネイティブダイアログ）
                 <DateTimePicker
                   value={dueDate || new Date()}
                   mode="date"
@@ -326,13 +426,20 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                     setShowDatePicker(false);
                     if (selected) {
                       const d = new Date(selected);
-                      const normalized = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+                      const normalized = new Date(
+                        d.getFullYear(),
+                        d.getMonth(),
+                        d.getDate(),
+                        0,
+                        0,
+                        0,
+                        0
+                      );
                       setDueDate(normalized);
                     }
                   }}
                 />
-              )
-            )}
+              ))}
 
             {/* 定期追加 */}
             <View style={styles.checkboxContainer}>
@@ -342,18 +449,29 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                 color={theme.textColor}
                 uncheckedColor={colors.border}
               />
-              <Paragraph style={[styles.checkboxLabel, { color: theme.textColor }]}>毎週追加する</Paragraph>
+              <Paragraph
+                style={[styles.checkboxLabel, { color: theme.textColor }]}
+              >
+                毎週追加する
+              </Paragraph>
             </View>
 
-            {/* 追加 */}
+            {/* 追加 / 更新 */}
             <Button
               onPress={handleSubmit}
               mode="contained"
-              style={[styles.submitButton, { backgroundColor: colors.surfaceSolid, borderColor: colors.border, borderWidth: 1 },]}
+              style={[
+                styles.submitButton,
+                {
+                  backgroundColor: colors.surfaceSolid,
+                  borderColor: colors.border,
+                  borderWidth: 1,
+                },
+              ]}
               buttonColor={colors.modalSurface}
               textColor={colors.text}
               contentStyle={{ height: 52 }}
-              disabled={!text.trim()}            // ★ 未入力なら無効
+              disabled={!text.trim()}
             >
               {todo ? '更新' : '追加'}
             </Button>
@@ -365,20 +483,20 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
 };
 
 const styles = StyleSheet.create({
-  modalContent: { 
-    padding: 20, 
-    marginHorizontal: 20, 
-    marginTop: 40 
+  modalContent: {
+    padding: 20,
+    marginHorizontal: 20,
+    marginTop: 40,
   },
-  closeButtonContainer: { 
-    alignItems: 'flex-end', 
-    marginBottom: 10 
+  closeButtonContainer: {
+    alignItems: 'flex-end',
+    marginBottom: 10,
   },
-  label: { 
-    marginTop: 10, 
-    marginBottom: 6, 
-    fontSize: 14, 
-    fontWeight: '600' 
+  label: {
+    marginTop: 10,
+    marginBottom: 6,
+    fontSize: 14,
+    fontWeight: '600',
   },
   input: {
     height: 50,
@@ -388,25 +506,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     fontSize: 16,
   },
-  chip: { 
-    marginBottom: 16, 
-    alignSelf: 'flex-start' 
+  chip: {
+    marginBottom: 16,
+    alignSelf: 'flex-start',
   },
-  priorityContainer: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    marginBottom: 8 
+  priorityContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
-  priorityButton: { 
-    flex: 1, 
-    marginHorizontal: 5 
+  priorityButton: {
+    flex: 1,
+    marginHorizontal: 5,
   },
-  priorityText: { 
-    marginBottom: 15, 
-    fontSize: 16 
+  priorityText: {
+    marginBottom: 15,
+    fontSize: 16,
   },
-  dateButton: { 
-    marginBottom: 16 
+  dateButton: {
+    marginBottom: 16,
   },
   pickerSheet: {
     marginTop: 8,
@@ -418,16 +536,16 @@ const styles = StyleSheet.create({
     marginTop: 10,
     borderRadius: 12,
     borderWidth: 1,
-    backgroundColor: '#fff', // ← 白背景を明示
-    overflow: 'hidden',       // 角丸を効かせる
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
-  checkboxContainer: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    marginBottom: 15 
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
   },
-  checkboxLabel: { 
-    fontSize: 16 
+  checkboxLabel: {
+    fontSize: 16,
   },
   radioColumn: {
     flexDirection: 'column',
@@ -439,8 +557,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
   },
-  submitButton: { 
-    marginTop: 16 
+  submitButton: {
+    marginTop: 16,
   },
 });
 
