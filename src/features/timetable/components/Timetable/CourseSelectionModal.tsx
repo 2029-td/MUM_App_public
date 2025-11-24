@@ -31,12 +31,22 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
   return (
     <Modal
       visible={visible}
-      transparent={true}
+      transparent
       animationType="slide"
       onRequestClose={onClose}
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+
+          {/* 🔥 右上の×ボタン */}
+          <TouchableOpacity
+            style={styles.topCloseButton}
+            onPress={onClose}
+            accessibilityLabel="閉じる"
+          >
+            <Text style={styles.topCloseText}>×</Text>
+          </TouchableOpacity>
+
           <Text style={styles.modalTitle}>
             {selectedDay}曜{selectedPeriod}限の科目を選択
           </Text>
@@ -50,7 +60,7 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
               >
                 <Text style={styles.courseName}>{course.科目名}</Text>
                 <Text style={styles.courseInfo}>
-                  教員：{course.教員} 
+                  教員：{course.教員}
                 </Text>
                 <Text style={styles.roomText}>
                   教室：{course.教室 ?? '未設定'}
@@ -59,12 +69,6 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
             ))}
           </ScrollView>
 
-          <TouchableOpacity
-            style={styles.closeButton}
-            onPress={onClose}
-          >
-            <Text style={styles.buttonText}>閉じる</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -84,13 +88,35 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxHeight: '80%',
+    position: 'relative', // ← 右上ボタン配置に必要
   },
+
+  /* タイトル */
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     marginBottom: 15,
     textAlign: 'center',
   },
+
+  /* 🔥 右上×ボタン */
+  topCloseButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  topCloseText: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+
   courseList: {
     maxHeight: 300,
     marginBottom: 15,
@@ -116,12 +142,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     marginTop: 2,
-  },
-  closeButton: {
-    backgroundColor: '#2196F3',
-    padding: 10,
-    borderRadius: 5,
-    alignItems: 'center',
   },
   buttonText: {
     color: '#FFFFFF',
