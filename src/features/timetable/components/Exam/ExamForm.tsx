@@ -22,6 +22,13 @@ interface ExamFormProps {
   isEditing?: boolean;
 }
 
+const getToday = () => {
+  const t = new Date();
+  t.setHours(0, 0, 0, 0);
+  return t;
+};
+
+
 export const ExamForm: React.FC<ExamFormProps> = ({
   exam,
   subjects,
@@ -32,6 +39,15 @@ export const ExamForm: React.FC<ExamFormProps> = ({
   onDatePickerVisibilityChange,
   isEditing = false,
 }) => {
+
+  const handleSubjectPress = (subjectId: string) => {
+    // すでに選択されている科目をもう一度押したら解除
+    if (exam.subjectId === subjectId) {
+      onExamChange({ ...exam, subjectId: '' });
+    } else {
+      onExamChange({ ...exam, subjectId });
+    }
+  };
   return (
     <View style={styles.container}>
       {/* 日付選択 */}
@@ -51,6 +67,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
             value={examDate}
             mode="date"
             display="default"
+            minimumDate={getToday()}  // ← ここに変更
             onChange={(_, selectedDate) => {
               onDatePickerVisibilityChange(Platform.OS === 'ios');
               if (selectedDate) {
@@ -71,14 +88,12 @@ export const ExamForm: React.FC<ExamFormProps> = ({
               key={subject.id}
               style={[
                 styles.subjectItem,
-                exam.subjectId === subject.id && styles.selectedSubjectItem
+                exam.subjectId === subject.id && styles.selectedSubjectItem,
               ]}
-              onPress={() => onExamChange({ ...exam, subjectId: subject.id })}
+              onPress={() => handleSubjectPress(subject.id)}
             >
               <Text style={styles.subjectName}>{subject.name}</Text>
-              <Text style={styles.subjectInfo}>
-                {subject.professor}
-              </Text>
+              <Text style={styles.subjectInfo}>{subject.professor}</Text>
             </TouchableOpacity>
           ))}
         </ScrollView>

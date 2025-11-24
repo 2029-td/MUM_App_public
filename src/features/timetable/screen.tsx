@@ -424,12 +424,13 @@ const switchPeriod = useCallback(
                   theme={getCurrentTheme()}
                   onExamPress={(exam) => {
                     setSelectedExam(exam);
-                    setIsExamModalVisible(true); // 編集用モーダルを開く
+                    setExamDate(new Date(exam.date)); // ★ これを追加
+                    setIsExamModalVisible(true);
                   }}
                   onAddPress={() => {
-                    setSelectedExam(null); // 新規登録モード
-                    setExamDate(new Date()); // 初期日付設定（必要なら）
-                    setIsExamModalVisible(true); // ✅ モーダル表示
+                    setSelectedExam(null);
+                    setExamDate(new Date()); // 新規のときは今日など
+                    setIsExamModalVisible(true);
                   }}
                 />
               </View>

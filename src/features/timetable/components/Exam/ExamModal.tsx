@@ -42,18 +42,32 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     note: '',
   });
 
+  // ExamModal.tsx
+
   useEffect(() => {
-    if (exam) {
-      setLocalExam(exam);
-    } else {
-      setLocalExam({
-        subjectId: '',
-        date: examDate.toISOString(),
-        location: '',
-        note: '',
-      });
+  if (!visible) return;
+
+  if (exam) {
+    setLocalExam(exam);
+
+    // 🔽 編集時：exam.date を親の examDate にも反映
+    const d = new Date(exam.date);
+    if (!isNaN(d.getTime())) {
+      onDateChange(d);
     }
-  }, [exam, examDate]);
+
+  } else {
+    const now = new Date();
+    onDateChange(now);
+
+    setLocalExam({
+      subjectId: '',
+      date: now.toISOString(),
+      location: '',
+      note: '',
+    });
+  }
+}, [exam, visible]);
 
   const handleSave = async () => {
     if (!localExam.subjectId) {
@@ -66,6 +80,28 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       return;
     }
 
+    // --- ここから日付のバリデーションを自前でやる ---
+    // localExam.date が空なら examDate（親の state）を使う保険
+    const dateString = localExam.date || examDate.toISOString();
+    const examDateObj = new Date(dateString);
+
+    if (Number.isNaN(examDateObj.getTime())) {
+      Alert.alert('エラー', '有効な日付を選択してください');
+      return;
+    }
+
+    // 「今日以降」を許可、「昨日以前」はエラー
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const examDay = new Date(examDateObj);
+    examDay.setHours(0, 0, 0, 0);
+
+    if (examDay < today) {
+      Alert.alert('エラー', '試験日は今日以降の日付を選択してください');
+      return;
+    }
+    // --- 日付チェックここまで ---
+
     try {
       const { id, ...rest } = localExam;
 
@@ -76,6 +112,7 @@ export const ExamModal: React.FC<ExamModalProps> = ({
 
       onClose();
     } catch (error) {
+      // ここは「日付が変」なときではなく、本当に保存処理でコケたときだけ来る
       Alert.alert('エラー', '試験の保存に失敗しました');
     }
   };
