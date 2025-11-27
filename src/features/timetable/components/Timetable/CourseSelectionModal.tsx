@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   Modal,
   ScrollView,
   StyleSheet,
+  TextInput,
 } from 'react-native';
 import type { CourseData, Theme } from '../../types';
 
@@ -28,6 +29,30 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
   onSelect,
   theme,
 }) => {
+  const [keyword, setKeyword] = useState('');
+
+  // モーダルを閉じたら検索キーワードはリセット
+  useEffect(() => {
+    if (!visible) {
+      setKeyword('');
+    }
+  }, [visible]);
+
+  // キーワードで科目を絞り込み
+  const filteredCourses = useMemo(() => {
+    const q = keyword.trim().toLowerCase();
+    if (!q) return courses;
+
+    return courses.filter(course => {
+      const name = (course.科目名 ?? '').toLowerCase();
+      const teacher = (course.教員 ?? '').toLowerCase();
+      return (
+        name.includes(q) ||
+        teacher.includes(q)
+      );
+    });
+  }, [courses, keyword]);
+
   return (
     <Modal
       visible={visible}
@@ -38,7 +63,7 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
 
-          {/* 🔥 右上の×ボタン */}
+          {/* 右上の×ボタン */}
           <TouchableOpacity
             style={styles.topCloseButton}
             onPress={onClose}
@@ -51,8 +76,17 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
             {selectedDay}曜{selectedPeriod}限の科目を選択
           </Text>
 
+          {/* 🔍 検索ボックス */}
+          <TextInput
+            style={styles.searchInput}
+            placeholder="科目名・教員名で絞り込み"
+            placeholderTextColor="#999"
+            value={keyword}
+            onChangeText={setKeyword}
+          />
+
           <ScrollView style={styles.courseList}>
-            {courses.map((course, index) => (
+            {filteredCourses.map((course, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.courseItem}
@@ -62,11 +96,15 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
                 <Text style={styles.courseInfo}>
                   教員：{course.教員}
                 </Text>
-                <Text style={styles.roomText}>
-                  教室：{course.教室 ?? '未設定'}
-                </Text>
               </TouchableOpacity>
             ))}
+            {filteredCourses.length === 0 && (
+              <View style={{ padding: 10 }}>
+                <Text style={{ textAlign: 'center', color: '#666' }}>
+                  該当する科目がありません
+                </Text>
+              </View>
+            )}
           </ScrollView>
 
         </View>
@@ -88,18 +126,29 @@ const styles = StyleSheet.create({
     padding: 20,
     width: '90%',
     maxHeight: '80%',
-    position: 'relative', // ← 右上ボタン配置に必要
+    position: 'relative',
   },
 
-  /* タイトル */
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 15,
+    marginBottom: 10,
     textAlign: 'center',
   },
 
-  /* 🔥 右上×ボタン */
+  // 🔍 検索ボックス
+  searchInput: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    fontSize: 14,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+  },
+
+  // 右上×ボタン
   topCloseButton: {
     position: 'absolute',
     top: 10,
@@ -119,7 +168,7 @@ const styles = StyleSheet.create({
 
   courseList: {
     maxHeight: 300,
-    marginBottom: 15,
+    marginTop: 5,
   },
   courseItem: {
     padding: 15,
@@ -142,10 +191,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#555',
     marginTop: 2,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
   },
 });

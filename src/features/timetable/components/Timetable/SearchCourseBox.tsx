@@ -1,115 +1,103 @@
+// src/features/timetable/components/Timetable/SearchCourseBox.tsx
+
 import React from 'react';
-import { View, TextInput, TouchableOpacity, Text, StyleSheet } from 'react-native';
+import {
+  View,
+  TextInput,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  ScrollView,
+} from 'react-native';
 import type { CourseData } from '../../types';
 
-interface SearchCourseBoxProps {
+interface Props {
   value: string;
-  onChange: (query: string) => void;
+  onChange: (text: string) => void;
   results: CourseData[];
   onSelect: (course: CourseData) => void;
 }
 
-const SearchCourseBox: React.FC<SearchCourseBoxProps> = ({ value, onChange, results, onSelect }) => {
-  const [selectedCourse, setSelectedCourse] = React.useState<CourseData | null>(null);
+const SearchCourseBox: React.FC<Props> = ({
+  value,
+  onChange,
+  results,
+  onSelect,
+}) => {
+  // ここで件数を制限したければ slice する
+  const limitedResults = results.slice(0, 20); // 例: 最大20件
 
   return (
-    <View style={{ marginBottom: 10 }}>
+    <View style={styles.container}>
       <TextInput
-        placeholder="授業名を検索"
-        value={value}
-        onChangeText={(text) => {
-          setSelectedCourse(null);
-          onChange(text);
-        }}
         style={styles.input}
+        value={value}
+        onChangeText={onChange}
+        placeholder="授業名・教員名で検索"
       />
-      {selectedCourse ? (
-  <View style={styles.detailBox}>
-    <Text style={styles.detailText}>科目名：{selectedCourse.科目名}</Text>
-    <Text style={styles.detailText}>教員：{selectedCourse.教員}</Text>
-    <Text style={styles.detailText}>曜日：{selectedCourse.曜日 ?? '不明'}曜日</Text>
-    <Text style={styles.detailText}>時限：{selectedCourse.時限 ?? '不明'}限</Text>
-    <Text style={styles.detailText}>教室：{selectedCourse.教室 ?? '未設定'}</Text>
 
-    <TouchableOpacity
-      style={styles.registerButton}
-      onPress={() => {
-        onSelect(selectedCourse);
-        setSelectedCourse(null);
-        onChange(''); // 検索欄をクリア
-      }}
-    >
-      <Text style={{ color: '#fff', fontWeight: 'bold' }}>登録する</Text>
-    </TouchableOpacity>
-
-    <TouchableOpacity
-      style={styles.backButton}
-      onPress={() => setSelectedCourse(null)}
-    >
-      <Text style={{ color: '#000' }}>戻る</Text>
-    </TouchableOpacity>
-  </View>
-) : (
-  results.length > 0 && (
-    <View style={{ marginTop: 10 }}>
-      {results.map((course, index) => (
-        <TouchableOpacity
-          key={`${course.科目名}-${course.教員}-${index}`} // 🔑 index でユニークにする
-          onPress={() => setSelectedCourse(course)}
-          style={styles.resultItem}
-        >
-          <Text>{course.科目名}（{course.教員}）</Text>
-        </TouchableOpacity>
-      ))}
-    </View>
-  )
-)}
+      {value.length > 0 && limitedResults.length > 0 && (
+        <View style={styles.suggestionContainer}>
+          <ScrollView
+            nestedScrollEnabled
+            keyboardShouldPersistTaps="handled"
+          >
+            {limitedResults.map((course, index) => (
+              <TouchableOpacity
+                key={`${course.科目名}-${index}`}
+                style={styles.suggestionItem}
+                onPress={() => onSelect(course)}
+              >
+                <Text style={styles.suggestionTitle}>{course.科目名}</Text>
+                {!!course.教員 && (
+                  <Text style={styles.suggestionSub}>
+                    {course.教員}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    marginBottom: 8,
+  },
   input: {
     backgroundColor: '#fff',
     borderRadius: 8,
-    padding: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     fontSize: 16,
-    borderColor: '#ccc',
+  },
+  suggestionContainer: {
+    marginTop: 8,
+    maxHeight: 220,         // ★ ここで高さを制限
+    borderRadius: 8,
     borderWidth: 1,
-  },
-  resultItem: {
-    backgroundColor: '#f0f0f0',
-    padding: 10,
-    marginBottom: 5,
-    borderRadius: 5,
-  },
-  detailBox: {
-    backgroundColor: '#f9f9f9',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
     borderColor: '#ddd',
-    borderWidth: 1,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
-  detailText: {
-    fontSize: 14,
-    marginBottom: 4,
+  suggestionItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
-  registerButton: {
-    backgroundColor: '#4CAF50',
-    padding: 10,
-    borderRadius: 5,
-    marginTop: 10,
-    alignItems: 'center',
+  suggestionTitle: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
   },
-  backButton: {
-    padding: 8,
-    borderRadius: 5,
-    borderColor: '#ccc',
-    borderWidth: 1,
-    backgroundColor: '#eee',
-    alignItems: 'center',
-    marginTop: 10,
+  suggestionSub: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 3,
   },
 });
 
