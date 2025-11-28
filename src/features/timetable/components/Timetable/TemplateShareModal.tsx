@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as Sharing from 'expo-sharing';
+  import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { storageService } from '../../services/storage';
 
@@ -60,7 +60,7 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
   const handleImport = async () => {
     try {
       setIsLoading(true);
-      
+
       const result = await DocumentPicker.getDocumentAsync({
         type: 'application/json',
         copyToCacheDirectory: true,
@@ -69,23 +69,14 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
       if (result.assets && result.assets.length > 0) {
         const fileContent = await FileSystem.readAsStringAsync(result.assets[0].uri);
         const importedData = JSON.parse(fileContent);
-        
-        // インポートを実行
+
         await storageService.importTemplateData(importedData);
-        
-        // 状態の更新を完了するまで待機
         await onImportSuccess();
-        
-        // UIの更新を待つ
+
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         Alert.alert('成功', 'テンプレートをインポートしました', [
-          {
-            text: 'OK',
-            onPress: () => {
-              onClose();
-            }
-          }
+          { text: 'OK', onPress: onClose }
         ]);
       }
     } catch (error) {
@@ -105,6 +96,15 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+
+          {/* ✅ 右上の「×」閉じるボタン */}
+          <TouchableOpacity
+            onPress={onClose}
+            style={styles.closeIconButton}
+          >
+            <Text style={styles.closeIcon}>×</Text>
+          </TouchableOpacity>
+
           <Text style={styles.title}>テンプレートの共有</Text>
           <Text style={styles.subtitle}>{templateName}</Text>
 
@@ -128,13 +128,6 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
               >
                 <Text style={styles.buttonText}>インポート</Text>
               </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.button, styles.cancelButton]}
-                onPress={onClose}
-              >
-                <Text style={styles.buttonText}>閉じる</Text>
-              </TouchableOpacity>
             </>
           )}
         </View>
@@ -142,8 +135,6 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
     </Modal>
   );
 };
-
-// ... styles は変更なし ...
 
 const styles = StyleSheet.create({
   modalContainer: {
@@ -159,14 +150,26 @@ const styles = StyleSheet.create({
     width: '80%',
     maxWidth: 400,
     elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
   },
+
+  /* ✅ 追加: 右上の × ボタン */
+  closeIconButton: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 10,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeIcon: {
+    fontSize: 22,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+
   title: {
     fontSize: 20,
     fontWeight: 'bold',
@@ -196,15 +199,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: 'center',
   },
-  exportButton: {
-    backgroundColor: '#4CAF50',
-  },
-  importButton: {
-    backgroundColor: '#2196F3',
-  },
-  cancelButton: {
-    backgroundColor: '#9E9E9E',
-  },
+  exportButton: { backgroundColor: '#4CAF50' },
+  importButton: { backgroundColor: '#2196F3' },
   buttonText: {
     color: 'white',
     fontSize: 16,

@@ -6,7 +6,6 @@ import {
   Modal,
   StyleSheet,
   Alert,
-  ScrollView,
 } from 'react-native';
 import type { Exam, Subject } from '../../types';
 import { ExamForm } from './ExamForm';
@@ -43,42 +42,77 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     note: '',
   });
 
+  // ExamModal.tsx
+
   useEffect(() => {
-    if (exam) {
-      setLocalExam(exam);
-    } else {
-      setLocalExam({
-        subjectId: '',
-        date: examDate.toISOString(),
-        location: '',
-        note: '',
-      });
+  if (!visible) return;
+
+  if (exam) {
+    setLocalExam(exam);
+
+    // 🔽 編集時：exam.date を親の examDate にも反映
+    const d = new Date(exam.date);
+    if (!isNaN(d.getTime())) {
+      onDateChange(d);
     }
-  }, [exam, examDate]);
+
+  } else {
+    const now = new Date();
+    onDateChange(now);
+
+    setLocalExam({
+      subjectId: '',
+      date: now.toISOString(),
+      location: '',
+      note: '',
+    });
+  }
+}, [exam, visible]);
 
   const handleSave = async () => {
     if (!localExam.subjectId) {
       Alert.alert('エラー', '科目を選択してください');
       return;
     }
+
     if (!localExam.location) {
       Alert.alert('エラー', '試験会場を入力してください');
       return;
     }
 
-    try {
-      if (!localExam) throw new Error('localExam is empty');
-      if (!localExam.date) throw new Error('Exam date is required');
-      if (!localExam.location) throw new Error('Exam location is required');
-      // 他にも必要な必須項目があればここでチェック
+    // --- ここから日付のバリデーションを自前でやる ---
+    // localExam.date が空なら examDate（親の state）を使う保険
+    const dateString = localExam.date || examDate.toISOString();
+    const examDateObj = new Date(dateString);
 
-      // 型を Omit<Exam, 'id'> に収めてから id は任意で付与
+    if (Number.isNaN(examDateObj.getTime())) {
+      Alert.alert('エラー', '有効な日付を選択してください');
+      return;
+    }
+
+    // 「今日以降」を許可、「昨日以前」はエラー
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const examDay = new Date(examDateObj);
+    examDay.setHours(0, 0, 0, 0);
+
+    if (examDay < today) {
+      Alert.alert('エラー', '試験日は今日以降の日付を選択してください');
+      return;
+    }
+    // --- 日付チェックここまで ---
+
+    try {
       const { id, ...rest } = localExam;
+
       await onSave({
         ...(rest as Omit<Exam, 'id'>),
         ...(id ? { id } : {}),
       });
+
+      onClose();
     } catch (error) {
+      // ここは「日付が変」なときではなく、本当に保存処理でコケたときだけ来る
       Alert.alert('エラー', '試験の保存に失敗しました');
     }
   };
@@ -97,7 +131,8 @@ export const ExamModal: React.FC<ExamModalProps> = ({
           onPress: async () => {
             try {
               await onDelete(exam.id);
-            } catch (error) {
+              onClose();
+            } catch {
               Alert.alert('エラー', '試験の削除に失敗しました');
             }
           },
@@ -106,23 +141,43 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     );
   };
 
+  /** 右上 × の動作 */
+  const handleCloseButtonPress = async () => {
+    if (exam) {
+      // 編集の場合 → 更新と同じ処理
+      await handleSave();
+    } else {
+      // 新規の場合 → 閉じるのみ
+      onClose();
+    }
+  };
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="slide"
-      onRequestClose={onClose}
+      onRequestClose={handleCloseButtonPress}
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+          
           {/* ヘッダー */}
           <View style={styles.header}>
             <Text style={styles.modalTitle}>
               {exam ? '試験日程の編集' : '新規試験日程の登録'}
             </Text>
+
+            {/* 右上 × ボタン */}
+            <TouchableOpacity
+              style={styles.closeButtonTop}
+              onPress={handleCloseButtonPress}
+            >
+              <Text style={styles.closeText}>×</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* スクロール可能なコンテンツエリア */}
+          {/* フォーム */}
           <View style={styles.formContainer}>
             <ExamForm
               exam={localExam}
@@ -136,18 +191,21 @@ export const ExamModal: React.FC<ExamModalProps> = ({
             />
           </View>
 
-          {/* フッター（ボタン群） */}
+          {/* フッター */}
           <View style={styles.footer}>
             <View style={styles.buttonContainer}>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={handleSave}
-              >
-                <Text style={styles.buttonText}>
-                  {exam ? '更新' : '登録'}
-                </Text>
-              </TouchableOpacity>
 
+              {/* 新規登録の時だけ登録ボタンを表示 */}
+              {!exam && (
+                <TouchableOpacity
+                  style={styles.saveButton}
+                  onPress={handleSave}
+                >
+                  <Text style={styles.buttonText}>登録</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* 編集時のみ削除ボタン */}
               {exam && (
                 <TouchableOpacity
                   style={styles.deleteButton}
@@ -157,12 +215,6 @@ export const ExamModal: React.FC<ExamModalProps> = ({
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={onClose}
-              >
-                <Text style={styles.buttonText}>キャンセル</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -183,12 +235,13 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     width: '90%',
     maxHeight: '90%',
-    overflow: 'hidden', // 重要: 内容がはみ出ないようにする
+    overflow: 'hidden',
   },
   header: {
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
+    position: 'relative',
   },
   modalTitle: {
     fontSize: 20,
@@ -196,21 +249,40 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: '#333',
   },
+
+  closeButtonTop: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeText: {
+    fontSize: 24,
+    color: '#333',
+    fontWeight: 'bold',
+  },
+
   formContainer: {
     flexGrow: 1,
-    maxHeight: '80%', // モーダルの高さを制限
+    maxHeight: '80%',
   },
+
   footer: {
     padding: 15,
     borderTopWidth: 1,
     borderTopColor: '#eee',
-    backgroundColor: 'white', // フッターの背景色を設定
   },
+
   buttonContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     gap: 10,
   },
+
   saveButton: {
     flex: 1,
     backgroundColor: '#4CAF50',
@@ -218,6 +290,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
   },
+
   deleteButton: {
     flex: 1,
     backgroundColor: '#F44336',
@@ -225,13 +298,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     alignItems: 'center',
   },
-  cancelButton: {
-    flex: 1,
-    backgroundColor: '#9E9E9E',
-    padding: 15,
-    borderRadius: 5,
-    alignItems: 'center',
-  },
+
   buttonText: {
     color: '#FFFFFF',
     fontSize: 16,

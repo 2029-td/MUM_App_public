@@ -50,65 +50,82 @@ export const useExams = ({ currentTemplateId, getCurrentTemplate }: UseExamsProp
         templateId: currentTemplateId,
       };
 
-      // 通知の設定
-      const examDate = new Date(newExam.date);
-      const currentTemplate = getCurrentTemplate();
-      if (currentTemplate) {
-        const subject = Object.values(currentTemplate.timetable)
-          .flatMap(day => Object.values(day))
-          .find(subject => subject.id === newExam.subjectId);
-
-        if (subject) {
-          await notificationService.scheduleExamNotification(
-            `${subject.name}の試験が明日です`,
-            `場所: ${newExam.location}\n${newExam.note || ''}`,
-            examDate
-          );
-        }
-      }
-
+      // ① 先に試験データを保存
       const storedExams = await storageService.getExams();
       const updatedExams = [...storedExams, newExam];
       await storageService.saveExams(updatedExams);
-      await loadExams(); // 試験データを再読み込み
+      await loadExams();
+
+      // ② 通知スケジュールは別 try/catch にして、
+      //    失敗してもアプリは落とさない
+      try {
+        const examDate = new Date(newExam.date);
+        const currentTemplate = getCurrentTemplate();
+        if (currentTemplate) {
+          const subject = Object.values(currentTemplate.timetable)
+            .flatMap(day => Object.values(day))
+            .find(subject => subject.id === newExam.subjectId);
+
+          if (subject) {
+            await notificationService.scheduleExamNotification(
+              `${subject.name}の試験が明日です`,
+              `場所: ${newExam.location}\n${newExam.note || ''}`,
+              examDate,
+            );
+          }
+        }
+      } catch (notifyError) {
+        console.warn('Failed to schedule exam notification:', notifyError);
+        // ここではアラートも throw も出さない
+      }
+
       return newExam;
     } catch (error) {
       console.error('Error adding exam:', error);
       Alert.alert('エラー', '試験の追加に失敗しました');
-      throw error;
+      // ← ここで throw すると赤画面になるのでやめる
+      // throw error;
+      return null;
     }
   };
 
   // 試験の更新
   const updateExam = async (updatedExam: Exam) => {
     try {
+      // ① 先に保存を完了させる
       const storedExams = await storageService.getExams();
       const updatedExams = storedExams.map(exam =>
         exam.id === updatedExam.id ? updatedExam : exam
       );
       await storageService.saveExams(updatedExams);
-      await loadExams(); // 試験データを再読み込み
+      await loadExams();
 
-      // 通知の更新
-      const examDate = new Date(updatedExam.date);
-      const currentTemplate = getCurrentTemplate();
-      if (currentTemplate) {
-        const subject = Object.values(currentTemplate.timetable)
-          .flatMap(day => Object.values(day))
-          .find(subject => subject.id === updatedExam.subjectId);
+      // ② 通知は分離（失敗しても保存は成功）
+      try {
+        const examDate = new Date(updatedExam.date);
+        const currentTemplate = getCurrentTemplate();
+        if (currentTemplate) {
+          const subject = Object.values(currentTemplate.timetable)
+            .flatMap(day => Object.values(day))
+            .find(subject => subject.id === updatedExam.subjectId);
 
-        if (subject) {
-          await notificationService.scheduleExamNotification(
-            `${subject.name}の試験が明日です`,
-            `場所: ${updatedExam.location}\n${updatedExam.note || ''}`,
-            examDate
-          );
+          if (subject) {
+            await notificationService.scheduleExamNotification(
+              `${subject.name}の試験が明日です`,
+              `場所: ${updatedExam.location}\n${updatedExam.note || ''}`,
+              examDate,
+            );
+          }
         }
+      } catch (notifyError) {
+        console.warn('通知の更新に失敗:', notifyError);
+        // ← ここではアラートも throw もしない
       }
+
     } catch (error) {
       console.error('Error updating exam:', error);
-      Alert.alert('エラー', '試験の更新に失敗しました');
-      throw error;
+      Alert.alert('エラー', '試験の保存に失敗しました');
+      return null;
     }
   };
 

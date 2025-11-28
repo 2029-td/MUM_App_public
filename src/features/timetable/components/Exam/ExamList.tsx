@@ -46,10 +46,13 @@ export const ExamList: React.FC<ExamListProps> = ({
           試験日程
         </Text>
         <TouchableOpacity
-          style={styles.addButton}
+          style={[
+            styles.addButton,
+            { backgroundColor: theme.headerColor }  // ← ★ここがポイント
+          ]}
           onPress={onAddPress}
         >
-          <Text style={styles.addButtonText}>追加</Text>
+          <Text style={[styles.addButtonText,{ color: theme.textColor }]}>追加</Text>
         </TouchableOpacity>
       </View>
 
@@ -106,7 +109,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   addButton: {
-    backgroundColor: '#4CAF50',
     paddingVertical: 8,
     paddingHorizontal: 15,
     borderRadius: 5,
