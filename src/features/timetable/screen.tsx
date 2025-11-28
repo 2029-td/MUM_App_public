@@ -22,6 +22,7 @@ import { AttendanceModal } from './components/Timetable/AttendanceModal';
 import { CourseSelectionModal } from './components/Timetable/CourseSelectionModal';
 import { YearTermModal } from './components/Timetable/TemplateModal';
 import { ExamList, ExamModal } from './components/Exam';
+import { ClassRegistrationModal } from './components/Timetable/ClassRegistrationModal';
 import SearchCourseBox from './components/Timetable/SearchCourseBox';
 import { colorPalette } from './constants'; 
 
@@ -115,6 +116,11 @@ export default function Page() {
   const [isAttendanceModalVisible, setIsAttendanceModalVisible] = useState<boolean>(false);
   const [isCourseModalVisible, setIsCourseModalVisible] = useState<boolean>(false);
   const [isExamModalVisible, setIsExamModalVisible] = useState<boolean>(false);
+
+  const [isClassRegModalVisible, setIsClassRegModalVisible] = useState(false);
+  const [pendingSubject, setPendingSubject] = useState<Subject | null>(null);
+  const [pendingDay, setPendingDay] = useState<string>('');
+  const [pendingPeriods, setPendingPeriods] = useState<string[]>([]);
 
   // 初期化
   useEffect(() => { initializeApp(); }, []);
@@ -225,9 +231,7 @@ const switchPeriod = useCallback(
 
   // 検索（学期で絞って渡す）
   const { query, setQuery, results } = useCourseSearch(
-    coursesByActiveTerm,    // ← これで学年も効く
-    selectedDay,
-    selectedPeriod
+    coursesByActiveTerm
   );
 
   const courseCandidatesForModal = useMemo(() => {
@@ -324,16 +328,14 @@ const switchPeriod = useCallback(
                 </Text>
 
                 {/* 共有ボタンと年度/学期ボタン */}
-                <View style={styles.headerButtons}>
+                <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
                   {/* 共有ボタン */}
                   <Chip
                     mode="flat"
                     compact
                     style={{
                       marginRight: 8,
-                      backgroundColor: colors.surfaceSolid,
-                      borderColor: colors.border,
-                      borderWidth: 1,
+                      backgroundColor: currentTheme.headerColor,
                     }}
                     textStyle={{ color: theme.textColor }}
                     onPress={() => setIsShareModalVisible(true)}
@@ -345,9 +347,7 @@ const switchPeriod = useCallback(
                     mode="flat"
                     compact
                     style={{
-                      backgroundColor: colors.surfaceSolid,
-                      borderColor: colors.border,
-                      borderWidth: 1,
+                      backgroundColor: currentTheme.headerColor,
                     }}
                     textStyle={{ color: theme.textColor }}
                     onPress={() => setIsYearTermModalVisible(true)}
@@ -362,13 +362,9 @@ const switchPeriod = useCallback(
                 value={query}
                 onChange={setQuery}
                 results={results}
-                onSelect={async (course: CourseData) => {
-                  const templateId = getCurrentTemplate()?.id;
-                  if (!templateId) return;
-
+                onSelect={(course: CourseData) => {
                   const periods = course.時限.split(',').map(p => p.trim());
 
-                  // 色を決める
                   const timetable = getCurrentTemplate()?.timetable || {};
                   const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
                   const decidedColor =
@@ -392,11 +388,12 @@ const switchPeriod = useCallback(
                     note: course.備考 ?? '',
                   };
 
-                  await updateSubjectMulti(templateId, course.曜日, periods, subject);
-                  const updatedTemplates = await storageService.getTemplates();
-                  await setTemplates(updatedTemplates);
+                  // ★ ここでは state セットだけ（同期処理だけ）
+                  setPendingSubject(subject);
+                  setPendingDay(course.曜日);
+                  setPendingPeriods(periods);
+                  setIsClassRegModalVisible(true);
                   setQuery('');
-                  setIsCourseModalVisible(false);
                 }}
               />
 
@@ -451,13 +448,9 @@ const switchPeriod = useCallback(
             selectedPeriod={selectedPeriod}
             courses={courseCandidatesForModal}
             theme={getCurrentTheme()}
-            onSelect={async (course: CourseData) => {
-              const templateId = getCurrentTemplate()?.id;
-              if (!templateId) return;
-
+            onSelect={(course: CourseData) => {
               const periods = course.時限.split(',').map(p => p.trim());
 
-              // ★ 色を決める
               const timetable = getCurrentTemplate()?.timetable || {};
               const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
               const decidedColor =
@@ -481,10 +474,12 @@ const switchPeriod = useCallback(
                 note: course.備考 ?? '',
               };
 
-              await updateSubjectMulti(templateId, course.曜日, periods, subject);
-              const updatedTemplates = await storageService.getTemplates();
-              await setTemplates(updatedTemplates);
+              // ★ ここも state セットだけ
+              setPendingSubject(subject);
+              setPendingDay(selectedDay);
+              setPendingPeriods(periods);
               setIsCourseModalVisible(false);
+              setIsClassRegModalVisible(true);
             }}
           />
 
@@ -609,6 +604,25 @@ const switchPeriod = useCallback(
               // インポート後にテンプレ一覧を更新
               const updated = await storageService.getTemplates();
               await setTemplates(updated);
+            }}
+          />
+
+          <ClassRegistrationModal
+            visible={isClassRegModalVisible}
+            subject={pendingSubject}
+            onClose={() => setIsClassRegModalVisible(false)}
+            onConfirm={async (color) => {
+              const templateId = getCurrentTemplate()?.id;
+              if (!templateId || !pendingSubject) return;
+
+              const subject: Subject = { ...pendingSubject, color };
+
+              // ★ ここで初めて storage / update を触る
+              await updateSubjectMulti(templateId, pendingDay, pendingPeriods, subject);
+              const updatedTemplates = await storageService.getTemplates();
+              await setTemplates(updatedTemplates);
+
+              setIsClassRegModalVisible(false);
             }}
           />
         </LinearGradient>
