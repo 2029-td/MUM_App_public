@@ -3,10 +3,8 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { WebView } from 'react-native-webview';
-import type { CalendarEvent } from '~/features/timetable/types';
 
 interface Props {
-  events: CalendarEvent[];
   theme: { backgroundColor: string; textColor: string; headerColor?: string };
 }
 

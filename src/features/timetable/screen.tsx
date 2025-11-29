@@ -1,6 +1,5 @@
 // src/features/timetable/screen.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import useGoogleAuth from '~/hooks/useGoogleAuth';
 import { Chip } from 'react-native-paper';
 // カレンダー月表示用
 import CalendarView from './components/Calendar/CalendarView';
@@ -11,8 +10,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useTemplates } from './hooks/useTemplates';
 import { useTheme } from './hooks/useTheme';
 import { useExams } from './hooks/useExams';
-import { usePullToRefreshCalendar } from './hooks/usePullToRefreshCalendar';
-import { useCalendarEvents } from './hooks/useCalendarEvents';
 import { useCourseSearch } from './hooks/useCourseSearch';
 import { useAppTheme } from '~/hooks/useAppTheme';
 import { useStyles } from '~/styles';
@@ -88,12 +85,6 @@ export default function Page() {
     deleteExam,
     getAllRegisteredSubjects,
   } = useExams({ currentTemplateId, getCurrentTemplate });
-
-  const { accessToken } = useGoogleAuth();
-  const { events, loading: calLoading, error: calError, refetch } = useCalendarEvents();
-  const { refreshing, onRefresh } = usePullToRefreshCalendar(refetch);
-
-  useEffect(() => { if (accessToken) refetch(); }, [accessToken]);
 
   // === 学期（前期/後期のみ） ===
   const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
@@ -314,132 +305,124 @@ const switchPeriod = useCallback(
         >
           <ScrollView
             style={styles.scrollView}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           >
-            <ScrollView
-              style={styles.scrollView}
-              refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            >
-              {/* ヘッダー部分 */}
-              <View style={styles.header}> 
-                {/* タイトル */}
-                <Text style={[styles.title, { color: getCurrentTheme().textColor }]}>
-                  時間割表
-                </Text>
+            {/* ヘッダー部分 */}
+            <View style={styles.header}> 
+              {/* タイトル */}
+              <Text style={[styles.title, { color: getCurrentTheme().textColor }]}>
+                時間割表
+              </Text>
 
-                {/* 共有ボタンと年度/学期ボタン */}
-                <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
-                  {/* 共有ボタン */}
-                  <Chip
-                    mode="flat"
-                    compact
-                    style={{
-                      marginRight: 8,
-                      backgroundColor: currentTheme.headerColor,
-                    }}
-                    textStyle={{ color: theme.textColor }}
-                    onPress={() => setIsShareModalVisible(true)}
-                  >
-                    共有
-                  </Chip>
+              {/* 共有ボタンと年度/学期ボタン */}
+              <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
+                {/* 共有ボタン */}
+                <Chip
+                  mode="flat"
+                  compact
+                  style={{
+                    marginRight: 8,
+                    backgroundColor: currentTheme.headerColor,
+                  }}
+                  textStyle={{ color: theme.textColor }}
+                  onPress={() => setIsShareModalVisible(true)}
+                >
+                  共有
+                </Chip>
 
-                  <Chip
-                    mode="flat"
-                    compact
-                    style={{
-                      backgroundColor: currentTheme.headerColor,
-                    }}
-                    textStyle={{ color: theme.textColor }}
-                    onPress={() => setIsYearTermModalVisible(true)}
-                  >
-                    年度/学期
-                  </Chip>
-                </View>
+                <Chip
+                  mode="flat"
+                  compact
+                  style={{
+                    backgroundColor: currentTheme.headerColor,
+                  }}
+                  textStyle={{ color: theme.textColor }}
+                  onPress={() => setIsYearTermModalVisible(true)}
+                >
+                  年度/学期
+                </Chip>
               </View>
+            </View>
 
-              {/* 検索バー */}
-              <SearchCourseBox
-                value={query}
-                onChange={setQuery}
-                results={results}
-                onSelect={(course: CourseData) => {
-                  const periods = course.時限.split(',').map(p => p.trim());
+            {/* 検索バー */}
+            <SearchCourseBox
+              value={query}
+              onChange={setQuery}
+              results={results}
+              onSelect={(course: CourseData) => {
+                const periods = course.時限.split(',').map(p => p.trim());
 
-                  const timetable = getCurrentTemplate()?.timetable || {};
-                  const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
-                  const decidedColor =
-                    findExistingColor(timetable, course.曜日, course.科目名, course.教員)
-                    ?? pickColorBySeed(seed);
+                const timetable = getCurrentTemplate()?.timetable || {};
+                const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
+                const decidedColor =
+                  findExistingColor(timetable, course.曜日, course.科目名, course.教員)
+                  ?? pickColorBySeed(seed);
 
-                  const subject: Subject = {
-                    id: `${course.曜日}-${periods[0]}-${course.科目名}`,
-                    campus: course.設置校舎,
-                    name: course.科目名,
-                    professor: course.教員,
-                    credits: course.単位,
-                    term: course.履修期,
-                    color: decidedColor, 
-                    notifications: true,
-                    room: course.教室 ?? '',
-                    attendance: 0,
-                    absence: 0,
-                    late: 0,
-                    totalClasses: 0,
-                    note: course.備考 ?? '',
-                  };
+                const subject: Subject = {
+                  id: `${course.曜日}-${periods[0]}-${course.科目名}`,
+                  campus: course.設置校舎,
+                  name: course.科目名,
+                  professor: course.教員,
+                  credits: course.単位,
+                  term: course.履修期,
+                  color: decidedColor, 
+                  notifications: true,
+                  room: course.教室 ?? '',
+                  attendance: 0,
+                  absence: 0,
+                  late: 0,
+                  totalClasses: 0,
+                  note: course.備考 ?? '',
+                };
 
-                  // ★ ここでは state セットだけ（同期処理だけ）
-                  setPendingSubject(subject);
-                  setPendingDay(course.曜日);
-                  setPendingPeriods(periods);
-                  setIsClassRegModalVisible(true);
-                  setQuery('');
-                }}
-              />
+                // ★ ここでは state セットだけ（同期処理だけ）
+                setPendingSubject(subject);
+                setPendingDay(course.曜日);
+                setPendingPeriods(periods);
+                setIsClassRegModalVisible(true);
+                setQuery('');
+              }}
+            />
 
-              {/* 時間割グリッド */}
-              <TimetableGrid
-                timetable={getCurrentTemplate()?.timetable || {}}
+            {/* 時間割グリッド */}
+            <TimetableGrid
+              timetable={getCurrentTemplate()?.timetable || {}}
+              theme={getCurrentTheme()}
+              onCellPress={(day, period) => {
+                setSelectedDay(day);
+                setSelectedPeriod(period);
+                const subject = getCurrentTemplate()?.timetable?.[day]?.[period] ?? null;
+                if (subject) {
+                  setSelectedSubject(subject);
+                  setIsAttendanceModalVisible(true); // 登録済み → 出席モーダルを表示
+                } else {
+                  setIsCourseModalVisible(true); // 未登録 → 授業候補モーダルを表示
+                }
+              }}
+            />
+
+            <View style={styles.examSection}>
+              <ExamList
+                exams={exams}
+                subjects={getAllRegisteredSubjects()}
                 theme={getCurrentTheme()}
-                onCellPress={(day, period) => {
-                  setSelectedDay(day);
-                  setSelectedPeriod(period);
-                  const subject = getCurrentTemplate()?.timetable?.[day]?.[period] ?? null;
-                  if (subject) {
-                    setSelectedSubject(subject);
-                    setIsAttendanceModalVisible(true); // 登録済み → 出席モーダルを表示
-                  } else {
-                    setIsCourseModalVisible(true); // 未登録 → 授業候補モーダルを表示
-                  }
+                onExamPress={(exam) => {
+                  setSelectedExam(exam);
+                  setExamDate(new Date(exam.date)); // ★ これを追加
+                  setIsExamModalVisible(true);
+                }}
+                onAddPress={() => {
+                  setSelectedExam(null);
+                  setExamDate(new Date()); // 新規のときは今日など
+                  setIsExamModalVisible(true);
                 }}
               />
+            </View>
 
-              <View style={styles.examSection}>
-                <ExamList
-                  exams={exams}
-                  subjects={getAllRegisteredSubjects()}
-                  theme={getCurrentTheme()}
-                  onExamPress={(exam) => {
-                    setSelectedExam(exam);
-                    setExamDate(new Date(exam.date)); // ★ これを追加
-                    setIsExamModalVisible(true);
-                  }}
-                  onAddPress={() => {
-                    setSelectedExam(null);
-                    setExamDate(new Date()); // 新規のときは今日など
-                    setIsExamModalVisible(true);
-                  }}
-                />
-              </View>
-
-              {/* Google カレンダー「今後の予定」 */}
-              <View style={styles.calendarSection}>
-                <Text style={[styles.calendarTitle, { color: currentTheme.textColor }]}>今後の予定</Text>
-                {calLoading && <ActivityIndicator size="small" color={currentTheme.textColor} />}
-                {calError && <Text style={[styles.errorText, { color: currentTheme.textColor }]}>予定の取得に失敗しました</Text>}
-                <CalendarView events={events} theme={currentTheme} />
-              </View>
-            </ScrollView>
+            {/* Google カレンダー「今後の予定」 */}
+            <View style={styles.calendarSection}>
+              <Text style={[styles.calendarTitle, { color: currentTheme.textColor }]}>今後の予定</Text>
+              <CalendarView theme={currentTheme} />
+            </View>
           </ScrollView>
           <CourseSelectionModal
             visible={isCourseModalVisible}
