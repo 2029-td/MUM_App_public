@@ -99,12 +99,3 @@ export interface Theme {
   headerColor: string;
   cellBackgroundColor: string;
 }
-
-// カレンダーイベントの型
-export interface CalendarEvent {
-  id: string;
-  summary: string;
-  start: { dateTime?: string; date?: string; };
-  end:   { dateTime?: string; date?: string; };
-  calendarId: string;
-}

@@ -54,11 +54,3 @@ export const STORAGE_KEYS = {
     '5': { hour: 16, minute: 40 },
     '6': { hour: 18, minute: 20 },
   } as const;
-
-export const CalendarColors = {
-  holiday: '#f44336',           // 休講日：赤
-  japaneseHoliday: '#4caf50',   // 日本の祝日：緑
-  classHoliday: '#2196f3',      // 休日授業実施日：青
-  term: '#ffeb3b',              // 学期開始/終了：黄
-  default: '#ff9800',           // その他：オレンジ
-};
