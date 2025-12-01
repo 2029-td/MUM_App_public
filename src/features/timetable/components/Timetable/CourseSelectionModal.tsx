@@ -27,7 +27,6 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
   selectedPeriod,
   onClose,
   onSelect,
-  theme,
 }) => {
   const [keyword, setKeyword] = useState('');
 

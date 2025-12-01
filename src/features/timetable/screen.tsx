@@ -3,16 +3,15 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Chip } from 'react-native-paper';
 // カレンダー月表示用
 import CalendarView from './components/Calendar/CalendarView';
-import { View, Text, TouchableOpacity, ScrollView, SafeAreaView, Alert, ActivityIndicator, RefreshControl, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, SafeAreaView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 
 // カスタムフック
 import { useTemplates } from './hooks/useTemplates';
-import { useTheme } from './hooks/useTheme';
+import { useTheme } from '../setting/hooks/useTheme';
 import { useExams } from './hooks/useExams';
 import { useCourseSearch } from './hooks/useCourseSearch';
 import { useAppTheme } from '~/hooks/useAppTheme';
-import { useStyles } from '~/styles';
 
 import { TimetableGrid } from './components/Timetable/TimetableGrid';
 import { AttendanceModal } from './components/Timetable/AttendanceModal';
@@ -61,23 +60,19 @@ export default function Page() {
 
   // カスタムフックの初期化
   const {
-    templates,
     currentTemplateId,
     isLoading: isTemplateLoading,
     getCurrentTemplate,
     setCurrentTemplateId,
     addTemplate,
-    deleteTemplate,
     updateSubject,
     updateSubjectMulti,
-    deleteSubject,
     setTemplates,
   } = useTemplates();
 
-  const { currentThemeId, getCurrentTheme, updateTheme } = useTheme();
+  const { getCurrentTheme, } = useTheme();
   const currentTheme = getCurrentTheme();
   const { theme } = useAppTheme();
-  const { colors } = useStyles();
   const {
     exams,
     addExam,
@@ -201,7 +196,6 @@ const switchPeriod = useCallback(
   },
   [addTemplate, setTemplates, setCurrentTemplateId]
 );
-
 
   // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
   const coursesByActiveTerm = useMemo(() => {
