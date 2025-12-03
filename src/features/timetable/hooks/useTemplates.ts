@@ -28,6 +28,7 @@ export const useTemplates = () => {
           name: 'デフォルト時間割',
           timetable: {},
           examIds: [], // 追加
+          year: new Date().getFullYear(),
         };
         setTemplates([defaultTemplate]);
         await storageService.saveTemplates([defaultTemplate]);
@@ -44,6 +45,7 @@ export const useTemplates = () => {
         name: 'デフォルト時間割',
         timetable: {},
         examIds: [], // 追加
+        year: new Date().getFullYear(),
       };
       setTemplates([defaultTemplate]);
       setCurrentTemplateId('default');
@@ -69,13 +71,18 @@ export const useTemplates = () => {
   }, [templates, currentTemplateId]);
 
   // 新しいテンプレートの追加（timetable を任意で渡せるようにする）
-const addTemplate = async (name: string, timetable: Timetable = {}) => {
+const addTemplate = async (
+  name: string,
+  timetable: Timetable = {},
+  year: number = new Date().getFullYear()
+) => {
   try {
     const newTemplate: TimetableTemplate = {
       id: Date.now().toString(),
       name: name.trim(),
-      timetable, // ここで渡す
-      examIds: [], // 追加
+      timetable,
+      examIds: [],
+      year, // ここでセット
     };
     const updatedTemplates = [...templates, newTemplate];
     await updateTemplates(updatedTemplates);
@@ -84,6 +91,7 @@ const addTemplate = async (name: string, timetable: Timetable = {}) => {
     Alert.alert('エラー', 'テンプレートの追加に失敗しました');
   }
 };
+
 
   // テンプレートの削除
   const deleteTemplate = async (id: string) => {

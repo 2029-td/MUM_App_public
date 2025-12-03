@@ -72,7 +72,7 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
           </TouchableOpacity>
 
           <Text style={styles.modalTitle}>
-            {selectedDay}曜{selectedPeriod}限の科目を選択
+            {selectedDay}曜{selectedPeriod}限
           </Text>
 
           {/* 🔍 検索ボックス */}

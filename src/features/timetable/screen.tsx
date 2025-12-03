@@ -587,6 +587,8 @@ const switchPeriod = useCallback(
           <ClassRegistrationModal
             visible={isClassRegModalVisible}
             subject={pendingSubject}
+            selectedDay={selectedDay}
+            selectedPeriod={selectedPeriod}
             onClose={() => setIsClassRegModalVisible(false)}
             onConfirm={async (color) => {
               const templateId = getCurrentTemplate()?.id;

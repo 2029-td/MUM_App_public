@@ -1,4 +1,3 @@
-// src/features/timetable/components/Timetable/TemplateModal.tsx
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
@@ -9,17 +8,18 @@ import {
 } from 'react-native';
 import { Chip } from 'react-native-paper';
 import { Picker } from '@react-native-picker/picker';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ActiveTerm } from '../../types';
 
 interface YearTermModalProps {
   visible: boolean;
   activeYear: number;
   activeTerm: ActiveTerm;
-  activeGrade: number;                       // ★ 追加: 学年 1〜4
+  activeGrade: number;
   onChangeYear: (year: number) => void;
   onChangeTerm: (term: ActiveTerm) => void;
-  onChangeGrade: (grade: number) => void;    // ★ 追加: 学年変更
-  onClose: () => void;                       // ✕ を押した時に呼ぶ
+  onChangeGrade: (grade: number) => void;
+  onClose: () => void;
 }
 
 export const YearTermModal: React.FC<YearTermModalProps> = ({
@@ -32,14 +32,14 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
   onChangeGrade,
   onClose,
 }) => {
-  // ピッカー用一時値
+  const insets = useSafeAreaInsets();
+
   const [tempYear, setTempYear] = useState<number>(activeYear);
   const [tempGrade, setTempGrade] = useState<number>(activeGrade);
 
   const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
   const [isGradePickerVisible, setIsGradePickerVisible] = useState(false);
 
-  // モーダルを開くたびに現在値で初期化
   useEffect(() => {
     if (visible) {
       setTempYear(activeYear);
@@ -47,26 +47,28 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
     }
   }, [visible, activeYear, activeGrade]);
 
-  // 年度候補
   const yearOptions = useMemo(() => {
     const thisYear = new Date().getFullYear();
     const years: number[] = [];
-    for (let i = -3; i <= 3; i++) {
+    for (let i = -3; i <= 3; i += 1) {
       years.push(thisYear + i);
     }
     return years;
   }, []);
 
-  // 学年候補（1〜4）
   const gradeOptions = [1, 2, 3, 4];
 
   const openYearPicker = () => {
     setTempYear(activeYear);
     setIsYearPickerVisible(true);
   };
-  const closeYearPicker = () => setIsYearPickerVisible(false);
+
+  const closeYearPicker = () => {
+    setIsYearPickerVisible(false);
+  };
+
   const handleYearConfirm = () => {
-    onChangeYear(tempYear);          // ここでは state 更新だけ（テンプレ切り替えは親の onClose で）
+    onChangeYear(tempYear);
     setIsYearPickerVisible(false);
   };
 
@@ -74,7 +76,11 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
     setTempGrade(activeGrade);
     setIsGradePickerVisible(true);
   };
-  const closeGradePicker = () => setIsGradePickerVisible(false);
+
+  const closeGradePicker = () => {
+    setIsGradePickerVisible(false);
+  };
+
   const handleGradeConfirm = () => {
     onChangeGrade(tempGrade);
     setIsGradePickerVisible(false);
@@ -83,13 +89,12 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
   return (
     <Modal
       visible={visible}
-      transparent
+      transparent={true}
       animationType="fade"
       onRequestClose={onClose}
     >
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          {/* タイトル＋✕ */}
           <View style={styles.headerRow}>
             <Text style={styles.modalTitle}>年度 / 学期切替</Text>
             <TouchableOpacity style={styles.closeIconButton} onPress={onClose}>
@@ -97,33 +102,28 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.description}>
-            年度や学期、学年が変わった時は、こちらから設定を変更してください。
-            異なる条件が設定されている場合、授業データなどが正しく対応しない可能性があります。
-          </Text>
-
-          {/* ★ 学年 */}
           <Text style={styles.sectionLabel}>学年</Text>
           <TouchableOpacity style={styles.row} onPress={openGradePicker}>
             <Text style={styles.rowValue}>{activeGrade}年</Text>
             <Text style={styles.rowIcon}>▾</Text>
           </TouchableOpacity>
 
-          {/* 年度 */}
           <Text style={styles.sectionLabel}>年度</Text>
           <TouchableOpacity style={styles.row} onPress={openYearPicker}>
             <Text style={styles.rowValue}>{activeYear}年度</Text>
             <Text style={styles.rowIcon}>▾</Text>
           </TouchableOpacity>
 
-          {/* 学期（前期/後期ボタンは元のまま） */}
           <Text style={styles.sectionLabel}>学期</Text>
           <View style={styles.termChipsRow}>
             <Chip
               mode="flat"
               selected={activeTerm === '前期'}
               onPress={() => onChangeTerm('前期')}
-              style={[styles.termChip, activeTerm === '前期' && styles.termChipSelected]}
+              style={[
+                styles.termChip,
+                activeTerm === '前期' ? styles.termChipSelected : null,
+              ]}
               selectedColor="#000"
               textStyle={{ color: '#000' }}
             >
@@ -133,7 +133,10 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
               mode="flat"
               selected={activeTerm === '後期'}
               onPress={() => onChangeTerm('後期')}
-              style={[styles.termChip, activeTerm === '後期' && styles.termChipSelected]}
+              style={[
+                styles.termChip,
+                activeTerm === '後期' ? styles.termChipSelected : null,
+              ]}
               selectedColor="#000"
               textStyle={{ color: '#000' }}
             >
@@ -146,12 +149,19 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
       {/* 年度ホイール */}
       <Modal
         visible={isYearPickerVisible}
-        transparent
+        transparent={true}
         animationType="slide"
         onRequestClose={closeYearPicker}
       >
         <View style={styles.pickerBackdrop}>
-          <View style={styles.pickerContainer}>
+          <View
+            style={[
+              styles.pickerContainer,
+              {
+                paddingBottom: (insets.bottom > 0 ? insets.bottom : 16),
+              },
+            ]}
+          >
             <View style={styles.pickerHeader}>
               <TouchableOpacity onPress={closeYearPicker}>
                 <Text style={styles.pickerHeaderButton}>キャンセル</Text>
@@ -165,8 +175,12 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
               selectedValue={tempYear}
               onValueChange={(value) => setTempYear(value)}
             >
-              {yearOptions.map(year => (
-                <Picker.Item key={year} label={String(year)} value={year} />
+              {yearOptions.map((year) => (
+                <Picker.Item
+                  key={year}
+                  label={String(year)}
+                  value={year}
+                />
               ))}
             </Picker>
           </View>
@@ -176,12 +190,19 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
       {/* 学年ホイール */}
       <Modal
         visible={isGradePickerVisible}
-        transparent
+        transparent={true}
         animationType="slide"
         onRequestClose={closeGradePicker}
       >
         <View style={styles.pickerBackdrop}>
-          <View style={styles.pickerContainer}>
+          <View
+            style={[
+              styles.pickerContainer,
+              {
+                paddingBottom: (insets.bottom > 0 ? insets.bottom : 16),
+              },
+            ]}
+          >
             <View style={styles.pickerHeader}>
               <TouchableOpacity onPress={closeGradePicker}>
                 <Text style={styles.pickerHeaderButton}>キャンセル</Text>
@@ -195,8 +216,12 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
               selectedValue={tempGrade}
               onValueChange={(value) => setTempGrade(value)}
             >
-              {gradeOptions.map(grade => (
-                <Picker.Item key={grade} label={`${grade}年`} value={grade} />
+              {gradeOptions.map((grade) => (
+                <Picker.Item
+                  key={grade}
+                  label={`${grade}年`}
+                  value={grade}
+                />
               ))}
             </Picker>
           </View>
@@ -229,31 +254,31 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#333333',
   },
   closeIconButton: {
     padding: 4,
   },
   closeIconText: {
     fontSize: 18,
-    color: '#666',
+    color: '#666666',
   },
   description: {
     fontSize: 13,
-    color: '#555',
+    color: '#555555',
     lineHeight: 18,
     marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 12,
-    color: '#777',
+    color: '#777777',
     marginBottom: 4,
   },
   row: {
     height: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#dddddd',
     paddingHorizontal: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -263,23 +288,23 @@ const styles = StyleSheet.create({
   },
   rowValue: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
   },
   rowIcon: {
     fontSize: 16,
-    color: '#999',
+    color: '#999999',
   },
   termChipsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
     marginBottom: 12,
     marginTop: 4,
   },
   termChip: {
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#dddddd',
     backgroundColor: '#f7f7f7',
+    marginHorizontal: 4,
   },
   termChipSelected: {
     backgroundColor: '#e0f2f1',
@@ -300,8 +325,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#ccc',
-    backgroundColor: '#fff',
+    borderBottomColor: '#cccccc',
+    backgroundColor: '#ffffff',
   },
   pickerHeaderButton: {
     fontSize: 16,
@@ -309,6 +334,6 @@ const styles = StyleSheet.create({
   },
   pickerHeaderTitle: {
     fontSize: 16,
-    color: '#333',
+    color: '#333333',
   },
 });

@@ -51,7 +51,7 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
       }
     } catch (error) {
       console.error('Error exporting template:', error);
-      Alert.alert('エラー', 'テンプレートのエクスポートに失敗しました');
+      Alert.alert('エラー', '時間割の共有に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -75,13 +75,13 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
 
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        Alert.alert('成功', 'テンプレートをインポートしました', [
+        Alert.alert('成功', '時間割を取り込みました', [
           { text: 'OK', onPress: onClose }
         ]);
       }
     } catch (error) {
       console.error('Error importing template:', error);
-      Alert.alert('エラー', 'テンプレートのインポートに失敗しました');
+      Alert.alert('エラー', '時間割の取り込みに失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -105,8 +105,7 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
             <Text style={styles.closeIcon}>×</Text>
           </TouchableOpacity>
 
-          <Text style={styles.title}>テンプレートの共有</Text>
-          <Text style={styles.subtitle}>{templateName}</Text>
+          <Text style={styles.title}>時間割の共有</Text>
 
           {isLoading ? (
             <View style={styles.loadingContainer}>
@@ -119,14 +118,14 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
                 style={[styles.button, styles.exportButton]}
                 onPress={handleExport}
               >
-                <Text style={styles.buttonText}>エクスポート</Text>
+                <Text style={styles.buttonText}>共有する</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.button, styles.importButton]}
                 onPress={handleImport}
               >
-                <Text style={styles.buttonText}>インポート</Text>
+                <Text style={styles.buttonText}>取り込む</Text>
               </TouchableOpacity>
             </>
           )}
@@ -174,7 +173,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
     color: '#333',
   },
   subtitle: {

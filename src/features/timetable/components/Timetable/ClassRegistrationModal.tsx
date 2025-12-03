@@ -14,6 +14,8 @@ import { useTheme } from '../../../setting/hooks/useTheme';
 interface Props {
   visible: boolean;
   subject: Subject | null;
+  selectedDay: string;
+  selectedPeriod: number;
   onClose: () => void;
   onConfirm: (color: string) => void;
 }
@@ -21,6 +23,8 @@ interface Props {
 export const ClassRegistrationModal: React.FC<Props> = ({
   visible,
   subject,
+  selectedDay,
+  selectedPeriod,
   onClose,
   onConfirm,
 }) => {
@@ -55,7 +59,9 @@ export const ClassRegistrationModal: React.FC<Props> = ({
           
           {/* ヘッダー：タイトル ＋ × ボタン */}
           <View style={styles.header}>
-            <Text style={styles.modalTitle}>{localSubject.name}</Text>
+            <Text style={styles.modalTitle}>
+              {`${selectedDay}曜${selectedPeriod}限\n${localSubject.name}`}
+            </Text>
 
             <TouchableOpacity
               onPress={onClose}
