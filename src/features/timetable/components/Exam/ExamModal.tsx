@@ -42,12 +42,11 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     note: '',
   });
 
-  // ExamModal.tsx
-
   useEffect(() => {
   if (!visible) return;
 
   if (exam) {
+    // 編集時：既存データをローカルにセット
     setLocalExam(exam);
 
     // 🔽 編集時：exam.date を親の examDate にも反映
@@ -55,8 +54,8 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     if (!isNaN(d.getTime())) {
       onDateChange(d);
     }
-
   } else {
+    // 新規時：今日で初期化
     const now = new Date();
     onDateChange(now);
 
@@ -75,12 +74,6 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       return;
     }
 
-    if (!localExam.location) {
-      Alert.alert('エラー', '試験会場を入力してください');
-      return;
-    }
-
-    // --- ここから日付のバリデーションを自前でやる ---
     // localExam.date が空なら examDate（親の state）を使う保険
     const dateString = localExam.date || examDate.toISOString();
     const examDateObj = new Date(dateString);
@@ -90,17 +83,19 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       return;
     }
 
-    // 「今日以降」を許可、「昨日以前」はエラー
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const examDay = new Date(examDateObj);
-    examDay.setHours(0, 0, 0, 0);
+    // 🔽 新規登録のときだけ「今日以降」をチェック（編集時は過去日でもそのまま保存を許可する）
+    if (!exam) {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-    if (examDay < today) {
-      Alert.alert('エラー', '試験日は今日以降の日付を選択してください');
-      return;
+      const examDay = new Date(examDateObj);
+      examDay.setHours(0, 0, 0, 0);
+
+      if (examDay < today) {
+        Alert.alert('エラー', '試験日は今日以降の日付を選択してください');
+        return;
+      }
     }
-    // --- 日付チェックここまで ---
 
     try {
       const { id, ...rest } = localExam;
@@ -112,7 +107,6 @@ export const ExamModal: React.FC<ExamModalProps> = ({
 
       onClose();
     } catch (error) {
-      // ここは「日付が変」なときではなく、本当に保存処理でコケたときだけ来る
       Alert.alert('エラー', '試験の保存に失敗しました');
     }
   };
@@ -120,25 +114,21 @@ export const ExamModal: React.FC<ExamModalProps> = ({
   const handleDelete = async () => {
     if (!exam?.id) return;
 
-    Alert.alert(
-      '確認',
-      'この試験を削除してもよろしいですか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '削除',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await onDelete(exam.id);
-              onClose();
-            } catch {
-              Alert.alert('エラー', '試験の削除に失敗しました');
-            }
-          },
+    Alert.alert('確認', 'この試験を削除してもよろしいですか？',[
+      { text: 'キャンセル', style: 'cancel' },
+      {
+        text: '削除',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await onDelete(exam.id);
+            onClose();
+          } catch {
+            Alert.alert('エラー', '試験の削除に失敗しました');
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   /** 右上 × の動作 */

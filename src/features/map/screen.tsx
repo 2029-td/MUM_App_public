@@ -467,7 +467,7 @@ const App: React.FC = () => {
           {/* 情報エリア */}
           <View style={styles.popupTextContainer}>
             <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>授業：</Text>
+              <Text style={styles.infoLabel}>科目：</Text>
               <Text style={styles.infoValue}>{classInfo.name}</Text>
             </View>
             <View style={styles.infoRow}>

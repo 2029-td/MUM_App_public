@@ -81,7 +81,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
 
       {/* 科目選択 */}
       <View style={styles.subjectSection}>
-        <Text style={styles.sectionLabel}>科目を選択</Text>
+        <Text style={styles.sectionLabel}>科目</Text>
         <ScrollView style={styles.subjectList}>
           {subjects.map(subject => (
             <TouchableOpacity
@@ -112,7 +112,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
 
       {/* メモ */}
       <View style={styles.inputSection}>
-        <Text style={styles.sectionLabel}>メモ (オプション)</Text>
+        <Text style={styles.sectionLabel}>メモ</Text>
         <TextInput
           style={[styles.input, styles.multilineInput]}
           placeholder="メモを入力"
