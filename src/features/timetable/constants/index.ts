@@ -27,6 +27,7 @@ export const STORAGE_KEYS = {
       textColor: '#FFFFFF',
       headerColor: 'rgba(0, 0, 0, 0.2)',
       cellBackgroundColor: 'rgba(255, 255, 255, 0.1)',
+      headerButtonColor: 'rgba(0, 0, 0, 0.1)', // ★ 追加
     },
     {
       id: 'dark',
@@ -35,6 +36,7 @@ export const STORAGE_KEYS = {
       textColor: '#FFFFFF',
       headerColor: 'rgba(0, 0, 0, 0.3)',
       cellBackgroundColor: 'rgba(255, 255, 255, 0.05)',
+      headerButtonColor: 'rgba(0, 0, 0, 0.1)', // ★ 追加
     },
     {
       id: 'light',
@@ -43,6 +45,7 @@ export const STORAGE_KEYS = {
       textColor: '#2c3e50',
       headerColor: 'rgba(0, 0, 0, 0.05)',
       cellBackgroundColor: 'rgba(255, 255, 255, 0.8)',
+      headerButtonColor: 'rgba(0, 0, 0, 0.025)', // ★ 追加
     },
   ] as const;
   

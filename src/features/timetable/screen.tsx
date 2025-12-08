@@ -315,10 +315,13 @@ const switchPeriod = useCallback(
                   compact
                   style={{
                     marginRight: 8,
-                    backgroundColor: currentTheme.headerColor,
+                    backgroundColor: currentTheme.headerButtonColor,
+                    elevation: 0,
+                  }}
+                  theme={{
+                    colors: { surface: 'transparent' },
                   }}
                   textStyle={{ color: theme.textColor }}
-                  onPress={() => setIsShareModalVisible(true)}
                 >
                   共有
                 </Chip>
@@ -327,7 +330,7 @@ const switchPeriod = useCallback(
                   mode="flat"
                   compact
                   style={{
-                    backgroundColor: currentTheme.headerColor,
+                    backgroundColor: currentTheme.headerButtonColor,
                   }}
                   textStyle={{ color: theme.textColor }}
                   onPress={() => setIsYearTermModalVisible(true)}

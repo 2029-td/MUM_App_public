@@ -98,4 +98,5 @@ export interface Theme {
   textColor: string;
   headerColor: string;
   cellBackgroundColor: string;
+  headerButtonColor: string; // ★ 追加
 }
