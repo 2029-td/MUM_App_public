@@ -83,24 +83,26 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
       >
         <View style={styles.modalContainer}>
           <View style={styles.modalCard}>
-            {/* 右上の設定ボタン（・・・） */}
-            <TouchableOpacity
-              accessibilityLabel="設定を開く"
-              onPress={() => setIsSettingsVisible(true)}
-              style={styles.settingsButton}
-            >
-              <Text style={styles.settingsButtonText}>⋯</Text>
-            </TouchableOpacity>
+            {/* ヘッダー（右上の・・・と×だけ固定表示） */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                accessibilityLabel="設定を開く"
+                onPress={() => setIsSettingsVisible(true)}
+                style={styles.settingsButton}
+              >
+                <Text style={styles.settingsButtonText}>⋯</Text>
+              </TouchableOpacity>
 
-            {/* 右上のバツボタン（・・・の右隣） */}
-            <TouchableOpacity
-              accessibilityLabel="詳細画面を閉じる"
-              onPress={onClose}
-              style={styles.closeButton}
-            >
-              <Text style={styles.closeButtonText}>×</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                accessibilityLabel="詳細画面を閉じる"
+                onPress={onClose}
+                style={styles.closeButton}
+              >
+                <Text style={styles.closeButtonText}>×</Text>
+              </TouchableOpacity>
+            </View>
 
+            {/* ここから下がスクロール領域。科目名はヘッダーの一段下に来る */}
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator
@@ -112,7 +114,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 {/* 教員 */}
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>教員：</Text>
-                  <Text style={styles.subjectDetailValue} numberOfLines={0}>{localSubject.professor}</Text>
+                  <Text style={styles.subjectDetailValue} numberOfLines={0}>
+                    {localSubject.professor}
+                  </Text>
                 </View>
 
                 {/* 教室 */}
@@ -131,7 +135,9 @@ export const AttendanceModal: React.FC<AttendanceModalProps> = ({
                 <View style={styles.subjectDetailRow}>
                   <Text style={styles.subjectDetailLabel}>単位：</Text>
                   <Text style={styles.subjectDetailValue}>
-                    {localSubject.credits && localSubject.credits > 0 ? `${localSubject.credits}` : '-'}
+                    {localSubject.credits && localSubject.credits > 0
+                      ? `${localSubject.credits}`
+                      : '-'}
                   </Text>
                 </View>
               </View>
@@ -275,19 +281,31 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     overflow: 'hidden', // はみ出し防止
   },
-  // モーダル内部のコンテンツ部分
-  cardBody: { 
-    padding: 20 
+
+  // 上部ヘッダー（・・・ / ×）
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: 8,
   },
 
-  // 科目名のタイトル
+  // モーダル内部のコンテンツ部分
+  cardBody: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 4,
+  },
+
+  // 科目名のタイトル（ヘッダーの一段下）
   modalTitle: {
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    marginBottom: 15,
+    marginBottom: 8,
     color: '#333',
   },
+
   // 科目詳細のグレー枠（教員・教室など）
   subjectDetailContainer: {
     backgroundColor: '#f5f5f5',
@@ -328,16 +346,16 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   // 「授業回数進捗: ◯/15」
-  progressLeft: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#333' 
+  progressLeft: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
   // 「出席率: ◯%」
-  progressRight: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    color: '#4caf50' 
+  progressRight: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4caf50',
   },
 
   // 3つのカード全体の横並び
@@ -356,23 +374,23 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   // カード上部のタイトル
-  groupTitle: { 
-    fontSize: 16, 
-    fontWeight: 'bold', 
-    marginBottom: 6 
+  groupTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 6,
   },
   // 出席数の数字
-  countValue: { 
-    fontSize: 28, 
-    fontWeight: 'bold', 
-    color: '#333', 
-    marginBottom: 10 
+  countValue: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 10,
   },
   // + と − ボタンの横並びエリア
-  stepperRow: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    width: 90 
+  stepperRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 90,
   },
   // + / - ボタン本体
   stepperCircle: {
@@ -386,45 +404,38 @@ const styles = StyleSheet.create({
     borderColor: '#ccc',
   },
   // + / - の文字
-  stepperSign: { 
-    fontSize: 22, 
-    fontWeight: '700', 
-    color: '#333' 
+  stepperSign: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#333',
   },
 
   // 右上の設定ボタン（•••）
   settingsButton: {
-    position: 'absolute',
-    top: 8,
-    right: 44, // × ボタンの左側に配置
-    zIndex: 10,
     width: 36,
-    height: 36,
+    height: 20,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 4,
   },
-  settingsButtonText: { 
-    fontSize: 24, 
-    lineHeight: 24, 
-    color: '#555' 
+  settingsButtonText: {
+    fontSize: 24,
+    lineHeight: 24,
+    color: '#555',
   },
 
   // 右上の×ボタン
   closeButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    zIndex: 10,
     width: 36,
-    height: 36,
+    height: 20,
     borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  closeButtonText: { 
-    fontSize: 24, 
-    lineHeight: 24, 
-    color: '#555' 
+  closeButtonText: {
+    fontSize: 24,
+    lineHeight: 24,
+    color: '#555',
   },
 });
