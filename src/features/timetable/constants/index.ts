@@ -5,6 +5,7 @@ export const STORAGE_KEYS = {
     EXAMS: '@exams_data',
     THEME: '@theme_id',
     ACTIVE_TERM: 'ACTIVE_TERM',
+    ACTIVE_GRADE: 'ACTIVE_GRADE',
     TEMPLATE_BY_PERIOD: 'TEMPLATE_BY_PERIOD',
   } as const;
   

@@ -137,6 +137,9 @@ export default function Page() {
       const savedTerm = await storageService.getActiveTerm();
       setActiveTerm(savedTerm);
 
+      const savedGrade = await storageService.getActiveGrade();
+      setActiveGrade(savedGrade);
+
       // ★ ここで「今の年度＋学期」→ currentTemplateId を紐づけておく
       const currentId = await storageService.getCurrentTemplateId();
       await storageService.saveTemplateIdForPeriod(
@@ -163,7 +166,6 @@ const switchPeriod = useCallback(
     // まず state を変えて UI 上の表示を合わせる
     setActiveYear(year);
     setActiveTerm(term);
-    await storageService.saveActiveTerm(term);
 
     // 1) 対応表から templateId を探す
     let templateId = await storageService.getTemplateIdForPeriod(year, term);
@@ -567,6 +569,7 @@ const switchPeriod = useCallback(
             }}
             onChangeGrade={(grade) => {
               setActiveGrade(grade);
+              storageService.saveActiveGrade(grade);
             }}
             onClose={async () => {
               // ✕ を押したタイミングでだけテンプレ切り替え

@@ -180,11 +180,22 @@ export const storageService = {
     }
   },
 
-  async saveActiveTerm(term: ActiveTerm): Promise<void> {
+  // storageService.ts
+  async getActiveGrade(): Promise<number> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_TERM, term);
+      const v = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_GRADE);
+      return v ? Number(v) : 1;
     } catch (e) {
-      console.error('Error saveActiveTerm:', e);
+      console.error('Error getActiveGrade:', e);
+      return 1;
+    }
+  },
+
+  async saveActiveGrade(grade: number): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.ACTIVE_GRADE, String(grade));
+    } catch (e) {
+      console.error('Error saveActiveGrade:', e);
       throw e;
     }
   },
