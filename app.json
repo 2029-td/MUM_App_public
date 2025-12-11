@@ -19,7 +19,7 @@
     },
     "android": {
       "package": "com.matsulab.mumapp",
-      "versionCode": 13,
+      "versionCode": 14,
       "adaptiveIcon": {
         "backgroundColor": "#ffffff"
       }
