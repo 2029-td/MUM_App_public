@@ -1,3 +1,5 @@
+// src/features/timetable/components/Timetable/TemplateModal.tsx
+
 import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,

@@ -1,3 +1,5 @@
+// src/features/timetable/components/Timetable/SubjectSettingsModal.tsx
+
 import React, { useEffect, useState, useCallback } from 'react';
 import { Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView, TextInput } from 'react-native';
 import type { Subject } from '../../types';

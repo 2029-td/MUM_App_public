@@ -1,3 +1,5 @@
+// src/features/timetable/hooks/useTemplates.ts
+
 import { useState, useCallback, useEffect } from 'react';
 import { Alert } from 'react-native';
 import { storageService } from '../services/storage';

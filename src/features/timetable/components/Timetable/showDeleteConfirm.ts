@@ -1,3 +1,5 @@
+// src/features/timetable/components/Timetable/showDeleteConfirm.ts
+
 import { Alert } from 'react-native';
 
 type Options = {

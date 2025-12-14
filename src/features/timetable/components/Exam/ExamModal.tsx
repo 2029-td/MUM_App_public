@@ -1,3 +1,5 @@
+// src/features/timetable/components/Exam/ExamModal.tsx
+
 import React, { useEffect } from 'react';
 import {
   View,

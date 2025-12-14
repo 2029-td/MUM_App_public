@@ -1,3 +1,5 @@
+// src/features/timetable/constants/index.ts
+
 export const STORAGE_KEYS = {
     TEMPLATES: '@timetable_templates',
     CURRENT_TEMPLATE: '@current_template',
