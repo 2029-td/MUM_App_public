@@ -1,3 +1,5 @@
+// src/hooks/useAppTheme.tsx
+
 import React, {
     createContext,
     useContext,

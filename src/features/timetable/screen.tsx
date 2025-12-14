@@ -8,7 +8,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 
 // カスタムフック
 import { useTemplates } from './hooks/useTemplates';
-import { useTheme } from '../setting/hooks/useTheme';
 import { useExams } from './hooks/useExams';
 import { useCourseSearch } from './hooks/useCourseSearch';
 import { useAppTheme } from '~/hooks/useAppTheme';
@@ -70,8 +69,6 @@ export default function Page() {
     setTemplates,
   } = useTemplates();
 
-  const { getCurrentTheme, } = useTheme();
-  const currentTheme = getCurrentTheme();
   const { theme } = useAppTheme();
   const {
     exams,
@@ -296,7 +293,7 @@ const switchPeriod = useCallback(
     ) : (
       <SafeAreaView style={styles.container}>
         <LinearGradient
-          colors={[getCurrentTheme().backgroundColor, getCurrentTheme().backgroundColor]}
+          colors={[theme.backgroundColor, theme.backgroundColor]}
           style={styles.gradientBackground}
         >
           <ScrollView
@@ -305,7 +302,7 @@ const switchPeriod = useCallback(
             {/* ヘッダー部分 */}
             <View style={styles.header}> 
               {/* タイトル */}
-              <Text style={[styles.title, { color: getCurrentTheme().textColor }]}>
+              <Text style={[styles.title, { color: theme.textColor }]}>
                 時間割表
               </Text>
 
@@ -317,7 +314,7 @@ const switchPeriod = useCallback(
                   compact
                   style={{
                     marginRight: 8,
-                    backgroundColor: currentTheme.headerButtonColor,
+                    backgroundColor: theme.headerButtonColor,
                     elevation: 0,
                   }}
                   theme={{
@@ -333,7 +330,7 @@ const switchPeriod = useCallback(
                   mode="flat"
                   compact
                   style={{
-                    backgroundColor: currentTheme.headerButtonColor,
+                    backgroundColor: theme.headerButtonColor,
                   }}
                   textStyle={{ color: theme.textColor }}
                   onPress={() => setIsYearTermModalVisible(true)}
@@ -386,7 +383,7 @@ const switchPeriod = useCallback(
             {/* 時間割グリッド */}
             <TimetableGrid
               timetable={getCurrentTemplate()?.timetable || {}}
-              theme={getCurrentTheme()}
+              theme={theme}
               onCellPress={(day, period) => {
                 setSelectedDay(day);
                 setSelectedPeriod(period);
@@ -404,7 +401,7 @@ const switchPeriod = useCallback(
               <ExamList
                 exams={exams}
                 subjects={getAllRegisteredSubjects()}
-                theme={getCurrentTheme()}
+                theme={theme}
                 onExamPress={(exam) => {
                   setSelectedExam(exam);
                   setExamDate(new Date(exam.date)); // ★ これを追加
@@ -420,8 +417,8 @@ const switchPeriod = useCallback(
 
             {/* Google カレンダー「今後の予定」 */}
             <View style={styles.calendarSection}>
-              <Text style={[styles.calendarTitle, { color: currentTheme.textColor }]}>今後の予定</Text>
-              <CalendarView theme={currentTheme} />
+              <Text style={[styles.calendarTitle, { color: theme.textColor }]}>今後の予定</Text>
+              <CalendarView theme={theme} />
             </View>
           </ScrollView>
           <CourseSelectionModal
@@ -430,7 +427,7 @@ const switchPeriod = useCallback(
             selectedDay={selectedDay}
             selectedPeriod={selectedPeriod}
             courses={courseCandidatesForModal}
-            theme={getCurrentTheme()}
+            theme={theme}
             onSelect={(course: CourseData) => {
               const periods = course.時限.split(',').map(p => p.trim());
 

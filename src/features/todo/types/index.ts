@@ -1,3 +1,5 @@
+// src/features/todo/types/index.ts
+
 export interface Todo {
   id: string;
   text: string;
