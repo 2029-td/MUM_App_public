@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { colorPalette } from '../../constants';
 import type { Subject } from '../../types';
-import { useTheme } from '../../../setting/hooks/useTheme';
+import { useAppTheme } from '~/hooks/useAppTheme';
 
 interface Props {
   visible: boolean;
@@ -28,8 +28,7 @@ export const ClassRegistrationModal: React.FC<Props> = ({
   onClose,
   onConfirm,
 }) => {
-  const { getCurrentTheme } = useTheme();
-  const theme = getCurrentTheme();
+  const { theme } = useAppTheme();
 
   const [localSubject, setLocalSubject] = useState<Subject | null>(null);
   const [selectedColor, setSelectedColor] = useState<string>(colorPalette[0]);
