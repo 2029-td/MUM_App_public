@@ -324,6 +324,7 @@ const switchPeriod = useCallback(
                     colors: { surface: 'transparent' },
                   }}
                   textStyle={{ color: theme.textColor }}
+                  onPress={() => setIsShareModalVisible(true)} // ← 追加
                 >
                   共有
                 </Chip>
