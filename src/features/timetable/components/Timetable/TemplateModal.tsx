@@ -1,17 +1,20 @@
 // src/features/timetable/components/Timetable/TemplateModal.tsx
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
   Modal,
   TouchableOpacity,
   StyleSheet,
+  ScrollView,
+  Pressable,
 } from 'react-native';
 import { Chip } from 'react-native-paper';
-import { Picker } from '@react-native-picker/picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ActiveTerm } from '../../types';
+
+type PickerKind = 'grade' | 'year';
 
 interface YearTermModalProps {
   visible: boolean;
@@ -34,13 +37,11 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
   onChangeGrade,
   onClose,
 }) => {
-  const insets = useSafeAreaInsets();
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerKind, setPickerKind] = useState<PickerKind>('grade');
 
-  const [tempYear, setTempYear] = useState<number>(activeYear);
-  const [tempGrade, setTempGrade] = useState<number>(activeGrade);
-
-  const [isYearPickerVisible, setIsYearPickerVisible] = useState(false);
-  const [isGradePickerVisible, setIsGradePickerVisible] = useState(false);
+  const [tempYear, setTempYear] = useState(activeYear);
+  const [tempGrade, setTempGrade] = useState(activeGrade);
 
   useEffect(() => {
     if (visible) {
@@ -51,96 +52,74 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
 
   const yearOptions = useMemo(() => {
     const thisYear = new Date().getFullYear();
-    const years: number[] = [];
-    for (let i = -3; i <= 3; i += 1) {
-      years.push(thisYear + i);
-    }
-    return years;
+    return Array.from({ length: 7 }, (_, i) => thisYear - 3 + i);
   }, []);
 
   const gradeOptions = [1, 2, 3, 4];
 
-  const openYearPicker = () => {
-    setTempYear(activeYear);
-    setIsYearPickerVisible(true);
+  const openPicker = (kind: PickerKind) => {
+    setPickerKind(kind);
+    setPickerVisible(true);
   };
 
-  const closeYearPicker = () => {
-    setIsYearPickerVisible(false);
+  const closePicker = () => setPickerVisible(false);
+
+  const confirmPicker = () => {
+    if (pickerKind === 'year') onChangeYear(tempYear);
+    else onChangeGrade(tempGrade);
+    setPickerVisible(false);
   };
 
-  const handleYearConfirm = () => {
-    onChangeYear(tempYear);
-    setIsYearPickerVisible(false);
-  };
-
-  const openGradePicker = () => {
-    setTempGrade(activeGrade);
-    setIsGradePickerVisible(true);
-  };
-
-  const closeGradePicker = () => {
-    setIsGradePickerVisible(false);
-  };
-
-  const handleGradeConfirm = () => {
-    onChangeGrade(tempGrade);
-    setIsGradePickerVisible(false);
-  };
+  const options = pickerKind === 'year' ? yearOptions : gradeOptions;
+  const tempValue = pickerKind === 'year' ? tempYear : tempGrade;
+  const setTempValue = pickerKind === 'year' ? setTempYear : setTempGrade;
 
   return (
-    <Modal
-      visible={visible}
-      transparent={true}
-      animationType="fade"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
+          {/* ヘッダー */}
           <View style={styles.headerRow}>
             <Text style={styles.modalTitle}>年度 / 学期切替</Text>
-            <TouchableOpacity style={styles.closeIconButton} onPress={onClose}>
+            <TouchableOpacity onPress={onClose}>
               <Text style={styles.closeIconText}>✕</Text>
             </TouchableOpacity>
           </View>
 
+          {/* 学年 */}
           <Text style={styles.sectionLabel}>学年</Text>
-          <TouchableOpacity style={styles.row} onPress={openGradePicker}>
+          <TouchableOpacity style={styles.row} onPress={() => openPicker('grade')}>
             <Text style={styles.rowValue}>{activeGrade}年</Text>
-            <Text style={styles.rowIcon}>▾</Text>
+            <Ionicons name="chevron-down" size={20} color="#999999" />
           </TouchableOpacity>
 
+          {/* 年度 */}
           <Text style={styles.sectionLabel}>年度</Text>
-          <TouchableOpacity style={styles.row} onPress={openYearPicker}>
+          <TouchableOpacity style={styles.row} onPress={() => openPicker('year')}>
             <Text style={styles.rowValue}>{activeYear}年度</Text>
-            <Text style={styles.rowIcon}>▾</Text>
+            <Ionicons name="chevron-down" size={20} color="#999999" />
           </TouchableOpacity>
 
+          {/* 学期 */}
           <Text style={styles.sectionLabel}>学期</Text>
           <View style={styles.termChipsRow}>
             <Chip
-              mode="flat"
               selected={activeTerm === '前期'}
               onPress={() => onChangeTerm('前期')}
               style={[
                 styles.termChip,
-                activeTerm === '前期' ? styles.termChipSelected : null,
+                activeTerm === '前期' && styles.termChipSelected,
               ]}
-              selectedColor="#000"
-              textStyle={{ color: '#000' }}
             >
               前期
             </Chip>
             <Chip
-              mode="flat"
               selected={activeTerm === '後期'}
               onPress={() => onChangeTerm('後期')}
               style={[
                 styles.termChip,
-                activeTerm === '後期' ? styles.termChipSelected : null,
+                activeTerm === '後期' && styles.termChipSelected,
               ]}
-              selectedColor="#000"
-              textStyle={{ color: '#000' }}
             >
               後期
             </Chip>
@@ -148,84 +127,46 @@ export const YearTermModal: React.FC<YearTermModalProps> = ({
         </View>
       </View>
 
-      {/* 年度ホイール */}
-      <Modal
-        visible={isYearPickerVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={closeYearPicker}
-      >
+      {/* 共通 Picker Modal */}
+      <Modal visible={pickerVisible} transparent animationType="fade">
         <View style={styles.pickerBackdrop}>
-          <View
-            style={[
-              styles.pickerContainer,
-              {
-                paddingBottom: (insets.bottom > 0 ? insets.bottom : 16),
-              },
-            ]}
-          >
-            <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={closeYearPicker}>
-                <Text style={styles.pickerHeaderButton}>キャンセル</Text>
-              </TouchableOpacity>
-              <Text style={styles.pickerHeaderTitle}>年度を選択</Text>
-              <TouchableOpacity onPress={handleYearConfirm}>
-                <Text style={styles.pickerHeaderButton}>完了</Text>
-              </TouchableOpacity>
-            </View>
-            <Picker
-              selectedValue={tempYear}
-              onValueChange={(value) => setTempYear(value)}
-            >
-              {yearOptions.map((year) => (
-                <Picker.Item
-                  key={year}
-                  label={String(year)}
-                  value={year}
-                />
-              ))}
-            </Picker>
-          </View>
-        </View>
-      </Modal>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePicker} />
 
-      {/* 学年ホイール */}
-      <Modal
-        visible={isGradePickerVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={closeGradePicker}
-      >
-        <View style={styles.pickerBackdrop}>
-          <View
-            style={[
-              styles.pickerContainer,
-              {
-                paddingBottom: (insets.bottom > 0 ? insets.bottom : 16),
-              },
-            ]}
-          >
+          <View style={styles.pickerCard}>
             <View style={styles.pickerHeader}>
-              <TouchableOpacity onPress={closeGradePicker}>
+              <TouchableOpacity onPress={closePicker}>
                 <Text style={styles.pickerHeaderButton}>キャンセル</Text>
               </TouchableOpacity>
-              <Text style={styles.pickerHeaderTitle}>学年を選択</Text>
-              <TouchableOpacity onPress={handleGradeConfirm}>
+              <Text style={styles.pickerHeaderTitle}>
+                {pickerKind === 'year' ? '年度を選択' : '学年を選択'}
+              </Text>
+              <TouchableOpacity onPress={confirmPicker}>
                 <Text style={styles.pickerHeaderButton}>完了</Text>
               </TouchableOpacity>
             </View>
-            <Picker
-              selectedValue={tempGrade}
-              onValueChange={(value) => setTempGrade(value)}
-            >
-              {gradeOptions.map((grade) => (
-                <Picker.Item
-                  key={grade}
-                  label={`${grade}年`}
-                  value={grade}
-                />
-              ))}
-            </Picker>
+
+            <ScrollView>
+              {options.map((v) => {
+                const selected = v === tempValue;
+                return (
+                  <TouchableOpacity
+                    key={v}
+                    style={[
+                      styles.optionRow,
+                      selected && styles.optionRowSelected,
+                    ]}
+                    onPress={() => setTempValue(v)}
+                  >
+                    <Text style={styles.optionText}>
+                      {pickerKind === 'year' ? `${v}年度` : `${v}年`}
+                    </Text>
+                    {selected && (
+                      <Ionicons name="checkmark" size={20} color="#333333" />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -245,7 +186,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 20,
     width: '90%',
-    maxHeight: '80%',
   },
   headerRow: {
     flexDirection: 'row',
@@ -258,18 +198,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333333',
   },
-  closeIconButton: {
-    padding: 4,
-  },
   closeIconText: {
     fontSize: 18,
     color: '#666666',
-  },
-  description: {
-    fontSize: 13,
-    color: '#555555',
-    lineHeight: 18,
-    marginBottom: 16,
   },
   sectionLabel: {
     fontSize: 12,
@@ -283,8 +214,8 @@ const styles = StyleSheet.create({
     borderColor: '#dddddd',
     paddingHorizontal: 12,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
     backgroundColor: '#f9f9f9',
   },
@@ -292,21 +223,16 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333333',
   },
-  rowIcon: {
-    fontSize: 16,
-    color: '#999999',
-  },
   termChipsRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 12,
     marginTop: 4,
   },
   termChip: {
+    marginHorizontal: 4,
+    backgroundColor: '#f7f7f7',
     borderWidth: 1,
     borderColor: '#dddddd',
-    backgroundColor: '#f7f7f7',
-    marginHorizontal: 4,
   },
   termChipSelected: {
     backgroundColor: '#e0f2f1',
@@ -314,27 +240,46 @@ const styles = StyleSheet.create({
   },
   pickerBackdrop: {
     flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.3)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
-  pickerContainer: {
-    backgroundColor: '#f8f8f8',
+  pickerCard: {
+    backgroundColor: 'white',
+    width: '90%',
+    borderRadius: 10,
+    overflow: 'hidden',
   },
   pickerHeader: {
     height: 44,
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingHorizontal: 12,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#cccccc',
-    backgroundColor: '#ffffff',
   },
   pickerHeaderButton: {
     fontSize: 16,
     color: '#007aff',
   },
   pickerHeaderTitle: {
+    fontSize: 16,
+    color: '#333333',
+  },
+  optionRow: {
+    height: 48,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#eeeeee',
+  },
+  optionRowSelected: {
+    backgroundColor: '#f0f0f0',
+  },
+  optionText: {
     fontSize: 16,
     color: '#333333',
   },
