@@ -9,6 +9,7 @@ export const STORAGE_KEYS = {
     ACTIVE_TERM: 'ACTIVE_TERM',
     ACTIVE_GRADE: 'ACTIVE_GRADE',
     TEMPLATE_BY_PERIOD: 'TEMPLATE_BY_PERIOD',
+    SHOW_SATURDAY: 'SHOW_SATURDAY',
   } as const;
   
   export const daysOfWeek = ['月', '火', '水', '木', '金', '土'] as const;

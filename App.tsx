@@ -20,7 +20,7 @@ import {
 import TimetableScreen from './src/features/timetable/screen';
 import MapScreen from './src/features/map/screen';
 import TodoScreen from './src/features/todo/screen';
-import SettingsScreen from './src/features/setting/screen';
+import SettingsScreen from './src/features/others/screen';
 
 // ★ 追加：グローバルテーマ
 import { ThemeProvider, useAppTheme } from './src/hooks/useAppTheme';
@@ -88,7 +88,7 @@ const AppShell = () => {
                   timetable: 'calendar',
                   Map: 'map',
                   'todo-list': 'list',
-                  settings: 'settings',
+                  others: 'ellipsis-horizontal',
                 };
                 return (
                   <Ionicons name={iconMap[route.name]} color={color} size={size} />
@@ -112,7 +112,7 @@ const AppShell = () => {
               options={{ title: 'ToDoリスト' }}
             />
             <Tab.Screen
-              name="settings"
+              name="others"
               component={SettingsScreen}
               options={{ title: 'その他' }}
             />

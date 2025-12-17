@@ -1,4 +1,3 @@
-// src/features/timetable/components/Timetable/TimetableGrid.tsx
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { daysOfWeek, periods } from '../../constants';
@@ -12,29 +11,34 @@ interface TimetableGridProps {
   };
   theme: Theme;
   onCellPress: (day: string, period: number) => void;
+
+  // ✅ 追加：表示する曜日を上書きできる
+  daysOfWeekOverride?: readonly string[];
 }
 
-const BORDER_COLOR = '#ccc'; // 常に薄いグレー
+const BORDER_COLOR = '#ccc';
 
 export const TimetableGrid: React.FC<TimetableGridProps> = ({
   timetable,
   theme,
   onCellPress,
+  daysOfWeekOverride,
 }) => {
+  const displayDays = daysOfWeekOverride ?? daysOfWeek;
+
   return (
     <View style={[styles.timetable, { backgroundColor: theme.cellBackgroundColor }]}>
       {/* ヘッダー行 */}
       <View style={[styles.headerRow, { backgroundColor: theme.headerColor }]}>
         <View style={styles.cornerCell} />
-        {daysOfWeek.map((day, dayIndex) => (
+        {displayDays.map((day, dayIndex) => (
           <View
             key={day}
             style={[
               styles.headerCell,
               {
                 borderColor: BORDER_COLOR,
-                // ✅ 最右列（土）の右線は消す
-                borderRightWidth: dayIndex === daysOfWeek.length - 1 ? 0 : 1,
+                borderRightWidth: dayIndex === displayDays.length - 1 ? 0 : 1,
               },
             ]}
           >
@@ -46,13 +50,11 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
       {/* 各時限の行 */}
       {periods.map((period, periodIndex) => (
         <View key={period} style={styles.row}>
-          {/* 時限セル（左端） */}
           <View
             style={[
               styles.periodCell,
               {
                 borderColor: BORDER_COLOR,
-                // ✅ 最下段（6限）の下線は消す
                 borderBottomWidth: periodIndex === periods.length - 1 ? 0 : 1,
               },
             ]}
@@ -61,7 +63,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
           </View>
 
           {/* 授業セル */}
-          {daysOfWeek.map((day, dayIndex) => {
+          {displayDays.map((day, dayIndex) => {
             const subject = timetable[day]?.[period.toString()];
             return (
               <TouchableOpacity
@@ -71,9 +73,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                   {
                     backgroundColor: subject ? subject.color : theme.cellBackgroundColor,
                     borderColor: BORDER_COLOR,
-                    // ✅ 最右列は右線なし
-                    borderRightWidth: dayIndex === daysOfWeek.length - 1 ? 0 : 1,
-                    // ✅ 最下段は下線なし
+                    borderRightWidth: dayIndex === displayDays.length - 1 ? 0 : 1,
                     borderBottomWidth: periodIndex === periods.length - 1 ? 0 : 1,
                   },
                 ]}
@@ -89,9 +89,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.addSubjectText, { color: theme.textColor }]}>
-                    +
-                  </Text>
+                  <Text style={[styles.addSubjectText, { color: theme.textColor }]}>+</Text>
                 )}
               </TouchableOpacity>
             );
@@ -103,15 +101,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
 };
 
 const styles = StyleSheet.create({
-  timetable: {
-    borderRadius: 10,
-    overflow: 'hidden',
-    flex: 1, // 親の余り高さを受け取れるようにする
-  },
-  headerRow: {
-    flexDirection: 'row',
-    height: 40, // ヘッダーは固定（好みでOK）
-  },
+  timetable: { borderRadius: 10, overflow: 'hidden', flex: 1 },
+  headerRow: { flexDirection: 'row', height: 40 },
   cornerCell: {
     width: 40,
     height: 40,
@@ -128,29 +119,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderBottomWidth: 1,
   },
-  headerText: {
-    fontWeight: 'bold',
-  },
-  row: {
-    flexDirection: 'row',
-    flex: 1, // 6行で高さを分け合う
-    minHeight: 80, // 小さい端末でも潰れない保険（数値は好みで）
-  },
+  headerText: { fontWeight: 'bold' },
+  row: { flexDirection: 'row', flex: 1, minHeight: 80 },
   periodCell: {
     width: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRightWidth: 1, // 左端の縦線は残す
-    alignSelf: 'stretch', // ★ 行の高さに合わせて縦に伸ばす（保険）
+    borderRightWidth: 1,
+    alignSelf: 'stretch',
   },
-  periodText: {
-    fontWeight: 'bold',
-  },
-  cell: {
-    flex: 1,
-    padding: 5,
-    justifyContent: 'center', // ★ “+”やテキストが中央寄りになって見栄え安定
-    },
+  periodText: { fontWeight: 'bold' },
+  cell: { flex: 1, padding: 5, justifyContent: 'center' },
   subjectName: {
     fontSize: 12,
     fontWeight: 'bold',
@@ -158,13 +137,6 @@ const styles = StyleSheet.create({
     color: '#000',
     textAlign: 'center',
   },
-  subjectInfo: {
-    fontSize: 10,
-    color: '#333',
-    textAlign: 'center',
-  },
-  addSubjectText: {
-    fontSize: 24,
-    textAlign: 'center',
-  },
+  subjectInfo: { fontSize: 10, color: '#333', textAlign: 'center' },
+  addSubjectText: { fontSize: 24, textAlign: 'center' },
 });

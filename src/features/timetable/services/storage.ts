@@ -220,4 +220,25 @@ export const storageService = {
       throw error;
     }
   },
+
+  // === 土曜日表示 ===
+  async getShowSaturday(): Promise<boolean> {
+    try {
+      const v = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_SATURDAY);
+      if (v == null) return true; // デフォルトは表示
+      return v === '1';
+    } catch (e) {
+      console.error('Error getShowSaturday:', e);
+      return true;
+    }
+  },
+
+  async saveShowSaturday(show: boolean): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.SHOW_SATURDAY, show ? '1' : '0');
+    } catch (e) {
+      console.error('Error saveShowSaturday:', e);
+      throw e;
+    }
+  },
 };

@@ -18,7 +18,7 @@ interface AttendanceModalProps {
 }
 
 export const AttendanceModal: React.FC<AttendanceModalProps> = ({
-  visible, subject, onClose, onUpdate, onDelete, onSubjectUpdate,
+  visible, subject, onClose, onDelete, onSubjectUpdate,
 }) => {
   const [localSubject, setLocalSubject] = useState<Subject | null>(null);
   const [isSettingsVisible, setIsSettingsVisible] = useState(false);
