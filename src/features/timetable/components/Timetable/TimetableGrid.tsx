@@ -81,7 +81,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
               >
                 {subject ? (
                   <View>
-                    <Text style={styles.subjectName} numberOfLines={2}>
+                    <Text style={styles.subjectName} numberOfLines={4}>
                       {subject.name}
                     </Text>
                     <Text style={styles.subjectInfo} numberOfLines={2}>
@@ -106,56 +106,62 @@ const styles = StyleSheet.create({
   timetable: {
     borderRadius: 10,
     overflow: 'hidden',
+    flex: 1, // 親の余り高さを受け取れるようにする
   },
   headerRow: {
     flexDirection: 'row',
+    height: 40, // ヘッダーは固定（好みでOK）
   },
   cornerCell: {
     width: 40,
-    padding: 10,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRightWidth: 1,
     borderBottomWidth: 1,
     borderColor: BORDER_COLOR,
   },
   headerCell: {
     flex: 1,
-    padding: 10,
+    height: 40,
     alignItems: 'center',
+    justifyContent: 'center',
     borderBottomWidth: 1,
-    // borderRightWidth は動的に付与
   },
   headerText: {
     fontWeight: 'bold',
   },
   row: {
     flexDirection: 'row',
+    flex: 1, // 6行で高さを分け合う
+    minHeight: 80, // 小さい端末でも潰れない保険（数値は好みで）
   },
   periodCell: {
     width: 40,
-    height: 80,
     justifyContent: 'center',
     alignItems: 'center',
     borderRightWidth: 1, // 左端の縦線は残す
-    // borderBottomWidth は動的に付与
+    alignSelf: 'stretch', // ★ 行の高さに合わせて縦に伸ばす（保険）
   },
   periodText: {
     fontWeight: 'bold',
   },
   cell: {
     flex: 1,
-    height: 80,
     padding: 5,
-    // borderRightWidth / borderBottomWidth は動的に付与
-  },
+    justifyContent: 'center', // ★ “+”やテキストが中央寄りになって見栄え安定
+    },
   subjectName: {
     fontSize: 12,
     fontWeight: 'bold',
     marginBottom: 2,
     color: '#000',
+    textAlign: 'center',
   },
   subjectInfo: {
     fontSize: 10,
     color: '#333',
+    textAlign: 'center',
   },
   addSubjectText: {
     fontSize: 24,

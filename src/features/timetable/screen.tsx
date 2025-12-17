@@ -1,10 +1,9 @@
 // src/features/timetable/screen.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Chip } from 'react-native-paper';
-import { View, Text, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Alert, ActivityIndicator, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-
 import { LinearGradient } from 'expo-linear-gradient';
 
 // カスタムフック
@@ -32,7 +31,9 @@ import { loadTimetableFromCSV } from './services/timetableCsvParser';
 import type { CourseData, Subject, Exam, ActiveTerm } from './types';
 
 export default function Page() {
-  // 既存 timetable から、同じ“連結っぽい”授業で使っている色があれば再利用
+  const { height: windowHeight } = useWindowDimensions();
+  const [headerH, setHeaderH] = useState(0);
+  const [searchH, setSearchH] = useState(0);
   const findExistingColor = (
     timetable: any,
     day: string,
@@ -251,6 +252,26 @@ export default function Page() {
     return filtered;
   }, [getCurrentTemplate, activeTerm]);
 
+  // 時間割が占めるべき高さ（画面の残り）を計算
+  const timetableHeight = useMemo(() => {
+    const TOP_PADDING = 10;          // contentContainerStyle.paddingTop
+    const HEADER_MB = 10;            // styles.header.marginBottom
+    const FINE_TUNE = 8;             // 微調整（0〜16で好み）
+
+    // 画面全体高さ から「上の安全領域」「タブバー」「上部UI（ヘッダー・検索）」を引く
+    const h =
+      windowHeight
+      - insets.top
+      - tabBarHeight
+      - TOP_PADDING
+      - headerH
+      - HEADER_MB
+      - searchH
+      - FINE_TUNE;
+
+    return h;
+  }, [windowHeight, insets.top, tabBarHeight, headerH, searchH]);
+
   const handleAttendanceUpdate = useCallback(
     async (type: 'attendance' | 'absence' | 'late') => {
       const template = getCurrentTemplate();
@@ -294,14 +315,17 @@ export default function Page() {
           <ScrollView
             style={styles.scrollView}
             contentContainerStyle={{
+              flexGrow: 1, // 画面の余り高さを子要素に配れるようにする
               paddingTop: 10,
               paddingHorizontal: 10,
-              paddingBottom: insets.bottom + tabBarHeight + 16, 
             }}
             keyboardShouldPersistTaps="handled"
           >
             {/* ヘッダー部分 */}
-            <View style={styles.header}> 
+            <View
+              style={styles.header}
+              onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}
+            >
               {/* タイトル */}
               <Text style={[styles.title, { color: theme.textColor }]}>
                 時間割表
@@ -342,61 +366,66 @@ export default function Page() {
             </View>
 
             {/* 検索バー */}
-            <SearchCourseBox
-              value={query}
-              onChange={setQuery}
-              results={results}
-              onSelect={(course: CourseData) => {
-                const periods = course.時限.split(',').map(p => p.trim());
+            <View onLayout={(e) => setSearchH(e.nativeEvent.layout.height)}>
+              <SearchCourseBox
+                value={query}
+                onChange={setQuery}
+                results={results}
+                onSelect={(course: CourseData) => {
+                  const periods = course.時限.split(',').map(p => p.trim());
 
-                const timetable = getCurrentTemplate()?.timetable || {};
-                const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
-                const decidedColor =
-                  findExistingColor(timetable, course.曜日, course.科目名, course.教員)
-                  ?? pickColorBySeed(seed);
+                  const timetable = getCurrentTemplate()?.timetable || {};
+                  const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
+                  const decidedColor =
+                    findExistingColor(timetable, course.曜日, course.科目名, course.教員)
+                    ?? pickColorBySeed(seed);
 
-                const subject: Subject = {
-                  id: `${course.曜日}-${periods[0]}-${course.科目名}`,
-                  campus: course.設置校舎,
-                  name: course.科目名,
-                  professor: course.教員,
-                  credits: course.単位,
-                  term: course.履修期,
-                  color: decidedColor, 
-                  notifications: true,
-                  room: course.教室 ?? '',
-                  attendance: 0,
-                  absence: 0,
-                  late: 0,
-                  totalClasses: 0,
-                  note: course.備考 ?? '',
-                };
+                  const subject: Subject = {
+                    id: `${course.曜日}-${periods[0]}-${course.科目名}`,
+                    campus: course.設置校舎,
+                    name: course.科目名,
+                    professor: course.教員,
+                    credits: course.単位,
+                    term: course.履修期,
+                    color: decidedColor, 
+                    notifications: true,
+                    room: course.教室 ?? '',
+                    attendance: 0,
+                    absence: 0,
+                    late: 0,
+                    totalClasses: 0,
+                    note: course.備考 ?? '',
+                  };
 
-                // ★ ここでは state セットだけ（同期処理だけ）
-                setPendingSubject(subject);
-                setPendingDay(course.曜日);
-                setPendingPeriods(periods);
-                setIsClassRegModalVisible(true);
-                setQuery('');
-              }}
-            />
+                  // ★ ここでは state セットだけ（同期処理だけ）
+                  setPendingSubject(subject);
+                  setPendingDay(course.曜日);
+                  setPendingPeriods(periods);
+                  setIsClassRegModalVisible(true);
+                  setQuery('');
+                }}
+              />
+            </View>
 
             {/* 時間割グリッド */}
-            <TimetableGrid
-              timetable={filteredTimetable}
-              theme={theme}
-              onCellPress={(day, period) => {
-                setSelectedDay(day);
-                setSelectedPeriod(period);
-                const subject = getCurrentTemplate()?.timetable?.[day]?.[period] ?? null;
-                if (subject) {
-                  setSelectedSubject(subject);
-                  setIsAttendanceModalVisible(true); // 登録済み → 出席モーダルを表示
-                } else {
-                  setIsCourseModalVisible(true); // 未登録 → 授業候補モーダルを表示
-                }
-              }}
-            />
+            <View style={[styles.timetableFill, { height: timetableHeight > 0 ? timetableHeight : undefined }]}>
+              <TimetableGrid
+                timetable={filteredTimetable}
+                theme={theme}
+                onCellPress={(day, period) => {
+                  setSelectedDay(day);
+                  setSelectedPeriod(period);
+                  const subject = getCurrentTemplate()?.timetable?.[day]?.[period] ?? null;
+                  if (subject) {
+                    setSelectedSubject(subject);
+                    setIsAttendanceModalVisible(true); // 登録済み → 出席モーダルを表示
+                  } else {
+                    setIsCourseModalVisible(true); // 未登録 → 授業候補モーダルを表示
+                  }
+                }}
+              />
+            </View>
+            
 
             <View style={styles.examSection}>
               <ExamList
@@ -421,6 +450,7 @@ export default function Page() {
               <Text style={[styles.calendarTitle, { color: theme.textColor }]}>今後の予定</Text>
               <CalendarView theme={theme} />
             </View>
+            <View style={{ height: insets.bottom + tabBarHeight }} />
           </ScrollView>
           <CourseSelectionModal
             visible={isCourseModalVisible}
@@ -653,7 +683,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
   },
   // 右側の Chip（共有 / 年度・学期）を横並びにするコンテナ
   headerButtons: {
@@ -664,6 +694,9 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  timetableFill: {
+    minHeight: 0, // ★ ScrollView配下での潰れ/伸びの事故防止
   },
   
   // ==== 試験一覧セクション ====
