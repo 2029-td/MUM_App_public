@@ -53,16 +53,10 @@ const AppShell = () => {
     dark:    '#1F2B38',
     light:   theme.backgroundColor,
   };
-  const navBg = NAV_BG_BY_THEME[currentThemeId] ?? NAV_BG_BY_THEME.default;
-
-  // 文字色とタブのアクティブ／非アクティブ色
+  const navBg        = NAV_BG_BY_THEME[currentThemeId] ?? NAV_BG_BY_THEME.default;
   const isDarkishNav = currentThemeId === 'default' || currentThemeId === 'dark';
-
-  // ヘッダー文字色
   const navFg        = isDarkishNav ? '#FFFFFF' : theme.textColor; // lightは濃い文字
-
-  // アクティブタブは常に明るい白で強調
-  const tabActive    = navFg;
+  const tabActive    = navFg; // アクティブタブは常に明るい白で強調
 
   // 非アクティブタブはより暗く（薄く）してコントラストを強くする
   const tabInactive  = isDarkishNav 
@@ -76,13 +70,8 @@ const AppShell = () => {
           <Tab.Navigator
             id={undefined}
             screenOptions={({ route }) => ({
-              headerShown: true,
-              headerTitle: () => null, // 全画面でタイトルを消す
-              // ★ ヘッダーを曜日ヘッダー色に
-              headerStyle: { backgroundColor: navBg },
-              headerTintColor: navFg,
-              headerTitleStyle: { color: navFg },
-              // ★ フッター(TabBar)も同色に
+              headerShown: false,
+              // ★ フッター(TabBar)を曜日ヘッダー色に
               tabBarStyle: {
                 backgroundColor: navBg,
                 borderTopColor: isDarkishNav

@@ -1,9 +1,10 @@
 // src/features/map/screen.tsx
 
 import React, { useState, useEffect } from 'react';
-import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, Platform, PixelRatio, TextInput } from 'react-native';
+import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView,  TextInput } from 'react-native';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
 
 // 各種データ読み込み
@@ -27,6 +28,8 @@ const MAX_SCALE = 5; // 最大倍率
 const EPS = 1e-4; // 浮動小数点の誤差吸収
 
 const App: React.FC = () => {
+  const insets = useSafeAreaInsets();
+
   // 既存ステート（検索/選択など）
   const [selectedItem, setSelectedItem] = useState<MapItem | null>(null);
   const [selectedClassItem, setSelectedClassItem] = useState<MapItem | null>(null); // 授業検索
@@ -351,194 +354,200 @@ const App: React.FC = () => {
 
   return (
     <GestureHandlerRootView style={styles.container}>
-      {/* パン/ピンチのジェスチャーはキャンバス全体に付与 */}
-      <GestureDetector gesture={composed}>
-        <View
-          style={styles.flexFill}
-          onLayout={(e) => {
-            containerW.value = e.nativeEvent.layout.width;
-            containerH.value = e.nativeEvent.layout.height;
-          }}
-        >
-          {/* 地図全体（SVG＋当たり判定＋自販機）を 1 レイヤーとして transform */}
-          <Animated.View
-            style={[
-              { width: imageWidth, height: imageHeight },
-              mapAnimatedStyle,
-            ]}
+      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
+        {/* パン/ピンチのジェスチャーはキャンバス全体に付与 */}
+        <GestureDetector gesture={composed}>
+          <View
+            style={styles.flexFill}
+            onLayout={(e) => {
+              containerW.value = e.nativeEvent.layout.width;
+              containerH.value = e.nativeEvent.layout.height;
+            }}
           >
-            {/* 地図 SVG */}
-            <MapSvg width={imageWidth} height={imageHeight} />
+            {/* 地図全体（SVG＋当たり判定＋自販機）を 1 レイヤーとして transform */}
+            <Animated.View
+              style={[
+                { width: imageWidth, height: imageHeight },
+                mapAnimatedStyle,
+              ]}
+            >
+              {/* 地図 SVG */}
+              <MapSvg width={imageWidth} height={imageHeight} />
 
-            {/* 建物のヒットエリア（レイヤー transform に追従）*/}
-            {mapItems.map(item => {
-              if (item.x == null || item.y == null || item.width == null || item.height == null) return null;
-              return (
-                <TouchableOpacity
-                  key={item.id}
+              {/* 建物のヒットエリア（レイヤー transform に追従）*/}
+              {mapItems.map(item => {
+                if (item.x == null || item.y == null || item.width == null || item.height == null) return null;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[
+                      styles.mapItem,
+                      {
+                        left: (item.x / IMAGE_WIDTH) * imageWidth,
+                        top: (item.y / IMAGE_HEIGHT) * imageHeight,
+                        width: Math.max((item.width / IMAGE_WIDTH) * imageWidth, 10),
+                        height: Math.max((item.height / IMAGE_HEIGHT) * imageHeight, 2),
+                      },
+                      (selectedItem?.id === item.id || selectedClassItem?.id === item.id || selectedLabItem?.id === item.id) && styles.RedBorder,
+                    ]}
+                    onPress={() => handleItemPress(item)}
+                  />
+                );
+              })}
+
+              {/* 自動販売機アイコン（レイヤー transform に追従）*/}
+              {showVendingMachines && vendingMachineLocations.map(vm => (
+                <View
+                  key={vm.id}
+                  pointerEvents="none"
                   style={[
-                    styles.mapItem,
+                    styles.vendingMachineIconWrapper,
                     {
-                      left: (item.x / IMAGE_WIDTH) * imageWidth,
-                      top: (item.y / IMAGE_HEIGHT) * imageHeight,
-                      width: Math.max((item.width / IMAGE_WIDTH) * imageWidth, 10),
-                      height: Math.max((item.height / IMAGE_HEIGHT) * imageHeight, 2),
+                      left: (vm.x / IMAGE_WIDTH) * imageWidth,
+                      top: (vm.y / IMAGE_HEIGHT) * imageHeight,
                     },
-                    (selectedItem?.id === item.id || selectedClassItem?.id === item.id || selectedLabItem?.id === item.id) && styles.RedBorder,
                   ]}
-                  onPress={() => handleItemPress(item)}
-                />
-              );
-            })}
+                >
+                  <Image
+                    source={require('./assets/icons/vending_machine_icon.png')}
+                    style={styles.vendingMachineIcon}
+                  />
+                </View>
+              ))}
+            </Animated.View>
+          </View>
+        </GestureDetector>
 
-            {/* 自動販売機アイコン（レイヤー transform に追従）*/}
-            {showVendingMachines && vendingMachineLocations.map(vm => (
-              <View
-                key={vm.id}
-                pointerEvents="none"
-                style={[
-                  styles.vendingMachineIconWrapper,
-                  {
-                    left: (vm.x / IMAGE_WIDTH) * imageWidth,
-                    top: (vm.y / IMAGE_HEIGHT) * imageHeight,
-                  },
-                ]}
-              >
-                <Image
-                  source={require('./assets/icons/vending_machine_icon.png')}
-                  style={styles.vendingMachineIcon}
-                />
-              </View>
-            ))}
-          </Animated.View>
+        {/* 検索バー */}
+        <View style={[styles.searchBar, { top: insets.top + 8 }]}>
+          <TextInput // 検索ボックスを表示するためのコンポーネント
+            style={styles.searchDesign} // 検索ボックスのデザインをsearchDesignで指定
+            placeholder="検索" // 検索ボックスのヒントテキスト
+            value={searchQuery} // 検索ボックスに表示するテキストの内容
+            onChangeText={handleSearch} // ユーザーが入力を行うたびにhandleSearch関数を実行
+          />
+          {searchQuery.length > 0 && ( // 検索ボックスに入力がある時に以下のコードを実行
+            // 検索結果のカードを追加
+            <ScrollView style={styles.searchResultsContainer}>
+              {searchResults.map((result, index) => ( // searchResults配列に入っているデータをmap関数で表示
+                <TouchableOpacity // タップ可能なエリアを作成
+                  key={index}
+                  style={styles.searchResultBox} // 検索結果カードのデザインをsearchResultBoxで指定
+                  onPress={() => handleSearchResultPress(result)} // タップするとhandleSearchResultPressを実行
+                >
+                  {/*検索結果カードにresult.dataを表示する*/}
+                  <Text>
+                    {result.data}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
-      </GestureDetector>
 
-      {/* 検索バー */}
-      <View style={styles.searchBar}>
-        <TextInput // 検索ボックスを表示するためのコンポーネント
-          style={styles.searchDesign} // 検索ボックスのデザインをsearchDesignで指定
-          placeholder="検索" // 検索ボックスのヒントテキスト
-          value={searchQuery} // 検索ボックスに表示するテキストの内容
-          onChangeText={handleSearch} // ユーザーが入力を行うたびにhandleSearch関数を実行
-        />
-        {searchQuery.length > 0 && ( // 検索ボックスに入力がある時に以下のコードを実行
-          // 検索結果のカードを追加
-          <ScrollView style={styles.searchResultsContainer}>
-            {searchResults.map((result, index) => ( // searchResults配列に入っているデータをmap関数で表示
-              <TouchableOpacity // タップ可能なエリアを作成
-                key={index}
-                style={styles.searchResultBox} // 検索結果カードのデザインをsearchResultBoxで指定
-                onPress={() => handleSearchResultPress(result)} // タップするとhandleSearchResultPressを実行
-              >
-                {/*検索結果カードにresult.dataを表示する*/}
-                <Text>
-                  {result.data}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+        {/* ポップアップ（建物タップ時） */}
+        {selectedItem && (
+          <View style={styles.popup}>
+            {/* 閉じるボタン */}
+            <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+              <Icon name="close" size={20} color="#000" />
+            </TouchableOpacity>
+
+            {/* 情報エリア */}
+            <Text style={styles.popupText}>
+              {Array.isArray(selectedItem.info) ? selectedItem.info.join('\n') : selectedItem.info}
+            </Text>
+          </View>
         )}
-      </View>
 
-      {/* ポップアップ（建物タップ時） */}
-      {selectedItem && (
-        <View style={styles.popup}>
-          {/* 閉じるボタン */}
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={20} color="#000" />
-          </TouchableOpacity>
+        {/* ポップアップ（授業検索時） */}
+        {classInfo && (
+          <View style={styles.popup}>
+            {/* 閉じるボタン */}
+            <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+              <Icon name="close" size={20} color="#000" />
+            </TouchableOpacity>
 
-          {/* 情報エリア */}
-          <Text style={styles.popupText}>
-            {Array.isArray(selectedItem.info) ? selectedItem.info.join('\n') : selectedItem.info}
-          </Text>
-        </View>
-      )}
-
-      {/* ポップアップ（授業検索時） */}
-      {classInfo && (
-        <View style={styles.popup}>
-          {/* 閉じるボタン */}
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={20} color="#000" />
-          </TouchableOpacity>
-
-          {/* 情報エリア */}
-          <View style={styles.popupTextContainer}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>科目：</Text>
-              <Text style={styles.infoValue}>{classInfo.name}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>教室：</Text>
-              <Text style={styles.infoValue}>{classInfo.room}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>校舎：</Text>
-              <Text style={styles.infoValue}>{classInfo.campus}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>教員：</Text>
-              <Text style={styles.infoValue}>{classInfo.teacher}</Text>
+            {/* 情報エリア */}
+            <View style={styles.popupTextContainer}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>科目：</Text>
+                <Text style={styles.infoValue}>{classInfo.name}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>教室：</Text>
+                <Text style={styles.infoValue}>{classInfo.room}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>校舎：</Text>
+                <Text style={styles.infoValue}>{classInfo.campus}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>教員：</Text>
+                <Text style={styles.infoValue}>{classInfo.teacher}</Text>
+              </View>
             </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* ポップアップ（研究室検索時） */}
-      {labInfo && selectedLabItem && (
-        <View style={styles.popup}>
-          {/* 閉じるボタン */}
-          <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-            <Icon name="close" size={20} color="#000" />
-          </TouchableOpacity>
+        {/* ポップアップ（研究室検索時） */}
+        {labInfo && selectedLabItem && (
+          <View style={styles.popup}>
+            {/* 閉じるボタン */}
+            <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
+              <Icon name="close" size={20} color="#000" />
+            </TouchableOpacity>
 
-          {/* 情報エリア */}
-          <View style={styles.popupTextContainer}>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>研究室：</Text>
-              <Text style={styles.infoValue}>{labInfo.name}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>教室　：</Text>
-              <Text style={styles.infoValue}>{labInfo.room}</Text>
+            {/* 情報エリア */}
+            <View style={styles.popupTextContainer}>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>研究室：</Text>
+                <Text style={styles.infoValue}>{labInfo.name}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Text style={styles.infoLabel}>教室　：</Text>
+                <Text style={styles.infoValue}>{labInfo.room}</Text>
+              </View>
             </View>
           </View>
+        )}
+
+        {/* 自動販売機フィルターボタン */}
+        <TouchableOpacity 
+          style={[styles.filterButton, { bottom: insets.bottom + 20 }]}
+          onPress={toggleVendingMachines} 
+          hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
+        >
+          <Image source={require('./assets/icons/vending_machine_filter.png')} style={styles.filterIcon} />
+        </TouchableOpacity>
+
+        {/* 拡大・縮小ボタン */}
+        <View style={[styles.zoomButtonsContainer, { top: insets.top + 60 }]}>
+          {/* 拡大ボタン */}
+          <TouchableOpacity
+            onLongPress={() => startContinuousZoom('in')}
+            delayLongPress={150} 
+            onPressOut={stopContinuousZoom}
+            onPress={increaseScale}
+            disabled={!canZoomIn} // ← マップ最大時は押せない
+            style={[styles.zoomButton, !canZoomIn && styles.zoomButtonDisabled]}
+          >
+            <Text style={styles.zoomLabel}>＋</Text>
+          </TouchableOpacity>
+
+          {/* 縮小ボタン */}
+          <TouchableOpacity
+            onLongPress={() => startContinuousZoom('out')}
+            delayLongPress={150}
+            onPressOut={stopContinuousZoom}
+            onPress={decreaseScale}
+            disabled={!canZoomOut} // ← マップ最小時（初期画面）は押せない
+            style={[styles.zoomButton, !canZoomOut && styles.zoomButtonDisabled]}
+          >
+            <Text style={styles.zoomLabel}>−</Text>
+          </TouchableOpacity>
         </View>
-      )}
-
-      {/* 自動販売機フィルターボタン */}
-      <TouchableOpacity style={styles.filterButton} onPress={toggleVendingMachines} hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}>
-        <Image source={require('./assets/icons/vending_machine_filter.png')} style={styles.filterIcon} />
-      </TouchableOpacity>
-
-      {/* 拡大・縮小ボタン */}
-      <View style={styles.zoomButtonsContainer}>
-        {/* 拡大ボタン */}
-        <TouchableOpacity
-          onLongPress={() => startContinuousZoom('in')}
-          delayLongPress={150} 
-          onPressOut={stopContinuousZoom}
-          onPress={increaseScale}
-          disabled={!canZoomIn} // ← マップ最大時は押せない
-          style={[styles.zoomButton, !canZoomIn && styles.zoomButtonDisabled]}
-        >
-          <Text style={styles.zoomLabel}>＋</Text>
-        </TouchableOpacity>
-
-        {/* 縮小ボタン */}
-        <TouchableOpacity
-          onLongPress={() => startContinuousZoom('out')}
-          delayLongPress={150}
-          onPressOut={stopContinuousZoom}
-          onPress={decreaseScale}
-          disabled={!canZoomOut} // ← マップ最小時（初期画面）は押せない
-          style={[styles.zoomButton, !canZoomOut && styles.zoomButtonDisabled]}
-        >
-          <Text style={styles.zoomLabel}>−</Text>
-        </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     </GestureHandlerRootView>
   );
 };
@@ -546,13 +555,19 @@ const App: React.FC = () => {
 // スタイルの設定
 const styles = StyleSheet.create({
   container: { 
-    flex: 1 
+    flex: 1,
+    backgroundColor: '#fff',
   },
+  safeArea: { 
+    flex: 1,
+    backgroundColor: '#fff', 
+  }, 
   // キャンバスを中央に配置（等倍時はここが“固定端”になる）
   flexFill: { 
     flex: 1, 
     alignItems: 'center', 
-    justifyContent: 'center' 
+    justifyContent: 'center',
+    backgroundColor: '#fff',
   },
 
   // アイテムの色変更
@@ -620,7 +635,6 @@ const styles = StyleSheet.create({
   // 検索
   searchBar: { 
     position: 'absolute', 
-    top: 20, 
     left: 20, 
     right: 20 
   },
@@ -644,7 +658,7 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     zIndex: 10,
-    maxHeight: 540,
+    maxHeight: SCREEN_HEIGHT * 0.75,
   },
   searchResultBox: {
     padding: 15,
@@ -669,7 +683,6 @@ const styles = StyleSheet.create({
   // 自動販売機フィルターボタン
   filterButton: {
     position: 'absolute',
-    top: 500,
     left: 20,
     zIndex: 1,
     elevation: 2,
@@ -683,7 +696,6 @@ const styles = StyleSheet.create({
   // 拡大縮小ボタン
   zoomButtonsContainer: {
     position: 'absolute',
-    top: 80,
     right: 20,
     flexDirection: 'column',
     gap: 10,

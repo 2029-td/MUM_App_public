@@ -1,9 +1,10 @@
 // src/features/timetable/screen.tsx
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Chip } from 'react-native-paper';
-// カレンダー月表示用
-import CalendarView from './components/Calendar/CalendarView';
-import { View, Text, ScrollView, SafeAreaView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, ScrollView, Alert, ActivityIndicator, StyleSheet } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+
 import { LinearGradient } from 'expo-linear-gradient';
 
 // カスタムフック
@@ -19,14 +20,14 @@ import { YearTermModal } from './components/Timetable/TemplateModal';
 import { ExamList, ExamModal } from './components/Exam';
 import { ClassRegistrationModal } from './components/Timetable/ClassRegistrationModal';
 import SearchCourseBox from './components/Timetable/SearchCourseBox';
+import { TemplateShareModal } from './components/Timetable/TemplateShareModal';
+import CalendarView from './components/Calendar/CalendarView';
 import { colorPalette } from './constants'; 
 
 // サービス
 import { storageService } from './services/storage';
 import { notificationService } from './services/notifications';
 import { loadTimetableFromCSV } from './services/timetableCsvParser';
-
-import { TemplateShareModal } from './components/Timetable/TemplateShareModal';
 
 import type { CourseData, Subject, Exam, ActiveTerm } from './types';
 
@@ -70,13 +71,9 @@ export default function Page() {
   } = useTemplates();
 
   const { theme } = useAppTheme();
-  const {
-    exams,
-    addExam,
-    updateExam,
-    deleteExam,
-    getAllRegisteredSubjects,
-  } = useExams({ currentTemplateId, getCurrentTemplate });
+  const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
+  const { exams, addExam, updateExam, deleteExam, getAllRegisteredSubjects, } = useExams({ currentTemplateId, getCurrentTemplate });
 
   // === 学期（前期/後期のみ） ===
   const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
@@ -156,45 +153,43 @@ export default function Page() {
     }
   };
 
-  // initializeApp の下あたりに追加
+  const switchPeriod = useCallback(
+    async (year: number, term: ActiveTerm) => {
+      // まず state を変えて UI 上の表示を合わせる
+      setActiveYear(year);
+      setActiveTerm(term);
 
-const switchPeriod = useCallback(
-  async (year: number, term: ActiveTerm) => {
-    // まず state を変えて UI 上の表示を合わせる
-    setActiveYear(year);
-    setActiveTerm(term);
+      // 1) 対応表から templateId を探す
+      let templateId = await storageService.getTemplateIdForPeriod(year, term);
 
-    // 1) 対応表から templateId を探す
-    let templateId = await storageService.getTemplateIdForPeriod(year, term);
+      // 2) なければ「この期間用のテンプレート」を新規作成
+      if (!templateId) {
+        // 空テンプレートを追加（既存の addTemplate を流用）
+        const name = `${year}年度${term}時間割`;
+        await addTemplate(name, {});   // timetable は空オブジェクト
 
-    // 2) なければ「この期間用のテンプレート」を新規作成
-    if (!templateId) {
-      // 空テンプレートを追加（既存の addTemplate を流用）
-      const name = `${year}年度${term}時間割`;
-      await addTemplate(name, {});   // timetable は空オブジェクト
+        const updatedTemplates = await storageService.getTemplates();
+        await setTemplates(updatedTemplates);
 
-      const updatedTemplates = await storageService.getTemplates();
-      await setTemplates(updatedTemplates);
+        // いま追加したテンプレートの id（末尾の要素と仮定）
+        templateId = updatedTemplates[updatedTemplates.length - 1].id;
 
-      // いま追加したテンプレートの id（末尾の要素と仮定）
-      templateId = updatedTemplates[updatedTemplates.length - 1].id;
+        // 対応表に保存
+        await storageService.saveTemplateIdForPeriod(year, term, templateId);
+      } else {
+        // 対応表にある場合 → templates と currentTemplateId を揃える
+        const updatedTemplates = await storageService.getTemplates();
+        await setTemplates(updatedTemplates);
+      }
 
-      // 対応表に保存
-      await storageService.saveTemplateIdForPeriod(year, term, templateId);
-    } else {
-      // 対応表にある場合 → templates と currentTemplateId を揃える
-      const updatedTemplates = await storageService.getTemplates();
-      await setTemplates(updatedTemplates);
-    }
+      if (!templateId) return;
 
-    if (!templateId) return;
-
-    // 現在のテンプレートを切り替え
-    await setCurrentTemplateId(templateId);
-    await storageService.saveCurrentTemplateId(templateId);
-  },
-  [addTemplate, setTemplates, setCurrentTemplateId]
-);
+      // 現在のテンプレートを切り替え
+      await setCurrentTemplateId(templateId);
+      await storageService.saveCurrentTemplateId(templateId);
+    },
+    [addTemplate, setTemplates, setCurrentTemplateId]
+  );
 
   // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
   const coursesByActiveTerm = useMemo(() => {
@@ -291,13 +286,19 @@ const switchPeriod = useCallback(
         <Text style={styles.loadingText}>読み込み中...</Text>
       </View>
     ) : (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]} edges={['top', 'left', 'right']}>
         <LinearGradient
           colors={[theme.backgroundColor, theme.backgroundColor]}
           style={styles.gradientBackground}
         >
           <ScrollView
             style={styles.scrollView}
+            contentContainerStyle={{
+              paddingTop: 10,
+              paddingHorizontal: 10,
+              paddingBottom: insets.bottom + tabBarHeight + 16, 
+            }}
+            keyboardShouldPersistTaps="handled"
           >
             {/* ヘッダー部分 */}
             <View style={styles.header}> 
@@ -307,7 +308,7 @@ const switchPeriod = useCallback(
               </Text>
 
               {/* 共有ボタンと年度/学期ボタン */}
-              <View style={[styles.header, { backgroundColor: theme.backgroundColor }]}>
+              <View style={styles.headerButtons}>
                 {/* 共有ボタン */}
                 <Chip
                   mode="flat"
@@ -321,7 +322,7 @@ const switchPeriod = useCallback(
                     colors: { surface: 'transparent' },
                   }}
                   textStyle={{ color: theme.textColor }}
-                  onPress={() => setIsShareModalVisible(true)} // ← 追加
+                  onPress={() => setIsShareModalVisible(true)}
                 >
                   共有
                 </Chip>
@@ -382,7 +383,7 @@ const switchPeriod = useCallback(
 
             {/* 時間割グリッド */}
             <TimetableGrid
-              timetable={getCurrentTemplate()?.timetable || {}}
+              timetable={filteredTimetable}
               theme={theme}
               onCellPress={(day, period) => {
                 setSelectedDay(day);
@@ -644,7 +645,6 @@ const styles = StyleSheet.create({
   // LinearGradient の内側コンテナ（全体の余白をここで確保）
   gradientBackground: {
     flex: 1,
-    padding: 10,
   },
 
   // ==== ヘッダー（タイトル + 共有 / 年度・学期ボタン） ====

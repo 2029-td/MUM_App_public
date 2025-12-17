@@ -1,18 +1,11 @@
 // src/features/setting/screen.tsx
 
 import React from 'react';
-import {
-  View,
-  StyleSheet,
-  Pressable,
-  Text,
-  Alert,
-  Linking,
-  Platform,
-  ScrollView,
-  Modal,
-} from 'react-native';
+import { View, StyleSheet, Pressable, Text, Alert, Linking, Platform, ScrollView, Modal, } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+// 各種データ読み込み
 import { useAppTheme } from '../../hooks/useAppTheme';
 import ThemeSelector from './components/ThemeSelector';
 
@@ -23,6 +16,7 @@ const surveyUrl =
   'https://forms.gle/TnV5QnRmNytDszmK7';
 
 const PolicyScreen = () => {
+  const insets = useSafeAreaInsets();
   const { theme } = useAppTheme();
 
   // モーダルの開閉
@@ -81,7 +75,7 @@ const PolicyScreen = () => {
   return (
     <ScrollView
       style={{ flex: 1, backgroundColor: theme.backgroundColor }}
-      contentContainerStyle={{ paddingTop: 32, paddingBottom: 24 }}
+      contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 }}
       scrollEnabled={!themeModalVisible} // モーダル表示中は背面スクロールを抑止（任意）
     >
       <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
@@ -116,7 +110,7 @@ const PolicyScreen = () => {
         statusBarTranslucent
         onRequestClose={() => setThemeModalVisible(false)} // Androidの戻る対策
       >
-        <View style={styles.centerRoot}>
+        <View style={[styles.centerRoot, { paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24 }]}>
           {/* 背景タップで閉じる */}
           <Pressable
             style={styles.backdrop}
@@ -161,7 +155,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 32,
     paddingHorizontal: 20,
   },
   row: {
@@ -180,15 +173,19 @@ const styles = StyleSheet.create({
   buttonPressed: {
     opacity: 0.6,
   },
-  icon: { marginRight: 12 },
-  buttonText: { fontSize: 17, fontWeight: '600' },
+  icon: { 
+    marginRight: 12 
+  },
+  buttonText: { 
+    fontSize: 17, 
+    fontWeight: '600' 
+  },
 
   // 中央モーダル用
   centerRoot: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center', // 中央寄せ
-    padding: 24,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,
@@ -209,5 +206,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginBottom: 8,
   },
-  dialogTitle: { fontSize: 18, fontWeight: '700' },
+  dialogTitle: { 
+    fontSize: 18, 
+    fontWeight: '700' 
+  },
 });
