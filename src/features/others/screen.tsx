@@ -1,4 +1,4 @@
-// src/features/setting/screen.tsx
+// src/features/others/screen.tsx
 
 import React from 'react';
 import { View, StyleSheet, Pressable, Text, Alert, Linking, Platform, ScrollView, Modal, } from 'react-native';

@@ -1,4 +1,4 @@
-// src/features/setting/components/ThemeSelector.tsx
+// src/features/others/components/ThemeSelector.tsx
 
 import React from 'react';
 import { View, Text, Pressable } from 'react-native';

@@ -314,9 +314,9 @@ export default function Page() {
     <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]} edges={['top', 'left', 'right']}>
       <LinearGradient colors={[theme.backgroundColor, theme.backgroundColor]} style={styles.gradientBackground}>
         <ScrollView
+          contentInsetAdjustmentBehavior="never"
           style={styles.scrollView}
           contentContainerStyle={{
-            flexGrow: 1, // 画面の余り高さを子要素に配れるようにする
             paddingTop: 10,
             paddingHorizontal: 10,
           }}
@@ -435,7 +435,6 @@ export default function Page() {
             <Text style={[styles.calendarTitle, { color: theme.textColor }]}>今後の予定</Text>
             <CalendarView theme={theme} />
           </View>
-          <View style={{ height: insets.bottom + tabBarHeight }} />
         </ScrollView>
 
         <CourseSelectionModal
@@ -720,6 +719,7 @@ const styles = StyleSheet.create({
   // カレンダーのブロック全体の余白
   calendarSection: {
     marginVertical: 20,
+    marginBottom: 8,
     paddingHorizontal: 10,
   },
   // 「今後の予定」のタイトル

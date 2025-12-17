@@ -20,7 +20,7 @@ import {
 import TimetableScreen from './src/features/timetable/screen';
 import MapScreen from './src/features/map/screen';
 import TodoScreen from './src/features/todo/screen';
-import SettingsScreen from './src/features/others/screen';
+import OthersScreen from './src/features/others/screen';
 
 // ★ 追加：グローバルテーマ
 import { ThemeProvider, useAppTheme } from './src/hooks/useAppTheme';
@@ -113,7 +113,7 @@ const AppShell = () => {
             />
             <Tab.Screen
               name="others"
-              component={SettingsScreen}
+              component={OthersScreen}
               options={{ title: 'その他' }}
             />
           </Tab.Navigator>
