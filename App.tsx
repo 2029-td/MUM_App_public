@@ -1,39 +1,36 @@
 // App.tsx
+//
+// - useAppTheme の新API（themeId）に追従
+// - Navigation / Paper のテーマを統一
+// - TabBar の配色も themeId ベースで切替
 
 import 'react-native-gesture-handler';
 import React, { useMemo } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import {
-  NavigationContainer,
-  DefaultTheme as NavLight,
-  DarkTheme as NavDark,
-} from '@react-navigation/native';
+import { NavigationContainer, DefaultTheme as NavLight, DarkTheme as NavDark } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import {
-  Provider as PaperProvider,
-  Portal,
-  MD3LightTheme as PaperLight,
-  MD3DarkTheme as PaperDark,
-} from 'react-native-paper';
+import { Provider as PaperProvider, Portal, MD3LightTheme as PaperLight, MD3DarkTheme as PaperDark } from 'react-native-paper';
 
 import TimetableScreen from './src/features/timetable/screen';
 import MapScreen from './src/features/map/screen';
 import TodoScreen from './src/features/todo/screen';
 import OthersScreen from './src/features/others/screen';
 
-// ★ 追加：グローバルテーマ
+// ★ グローバルテーマ
 import { ThemeProvider, useAppTheme } from './src/hooks/useAppTheme';
 
 const Tab = createBottomTabNavigator();
 
 const AppShell = () => {
-  const { currentThemeId, theme } = useAppTheme();
+  const { themeId, theme } = useAppTheme();
 
-  const navTheme = currentThemeId === 'dark' ? NavDark : NavLight;
+  // react-navigation のテーマ（ナビゲーションの内部色）
+  const navTheme = themeId === 'dark' ? NavDark : NavLight;
 
+  // react-native-paper のテーマ（Paper コンポーネント群）
   const paperTheme = useMemo(() => {
-    const base = currentThemeId === 'dark' ? PaperDark : PaperLight;
+    const base = themeId === 'dark' ? PaperDark : PaperLight;
     return {
       ...base,
       colors: {
@@ -45,23 +42,18 @@ const AppShell = () => {
         onSurface: theme.textColor,
       },
     };
-  }, [currentThemeId, theme]);
+  }, [themeId, theme]);
 
-  // ▼ ナビゲーション（ヘッダー／フッター）の見た目をここで統一
-  const NAV_BG_BY_THEME: Record<string, string> = {
-    default: '#3D527F',
-    dark:    '#1F2B38',
-    light:   theme.backgroundColor,
-  };
-  const navBg        = NAV_BG_BY_THEME[currentThemeId] ?? NAV_BG_BY_THEME.default;
-  const isDarkishNav = currentThemeId === 'default' || currentThemeId === 'dark';
-  const navFg        = isDarkishNav ? '#FFFFFF' : theme.textColor; // lightは濃い文字
-  const tabActive    = navFg; // アクティブタブは常に明るい白で強調
+  // ▼ TabBar の見た目（必要最低限の分岐）
+  const navBg = themeId === 'dark' ? '#1F2B38' : theme.backgroundColor;
+  const isDarkishNav = themeId === 'dark';
 
-  // 非アクティブタブはより暗く（薄く）してコントラストを強くする
-  const tabInactive  = isDarkishNav 
-    ? 'rgba(255,255,255,0.35)' // dark系: 薄い白
-    : 'rgba(44,62,80,0.35)'; // light系: 薄い黒
+  const tabActive = isDarkishNav ? '#FFFFFF' : theme.textColor;
+
+  // 非アクティブは薄くしてコントラストを強くする
+  const tabInactive = isDarkishNav
+    ? 'rgba(255,255,255,0.35)'
+    : 'rgba(44,62,80,0.35)';
 
   return (
     <PaperProvider theme={paperTheme}>
@@ -71,7 +63,6 @@ const AppShell = () => {
             id={undefined}
             screenOptions={({ route }) => ({
               headerShown: false,
-              // ★ フッター(TabBar)を曜日ヘッダー色に
               tabBarStyle: {
                 backgroundColor: navBg,
                 borderTopColor: isDarkishNav
@@ -90,9 +81,7 @@ const AppShell = () => {
                   'todo-list': 'list',
                   others: 'ellipsis-horizontal',
                 };
-                return (
-                  <Ionicons name={iconMap[route.name]} color={color} size={size} />
-                );
+                return <Ionicons name={iconMap[route.name]} color={color} size={size} />;
               },
             })}
           >

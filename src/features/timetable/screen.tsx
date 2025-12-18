@@ -1,4 +1,10 @@
 // src/features/timetable/screen.tsx
+//
+// - 年度/学期ごとにテンプレIDを紐づけて保存（TEMPLATE_BY_PERIOD）
+// - 年度/学期切替モーダルから switchPeriod を呼び、表示テンプレを切替
+// - 共有（export/import）後もテンプレ一覧と currentTemplateId を整合させる
+// - テーマは useAppTheme から受け取った theme を利用（light/dark の2本）
+
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Alert, ActivityIndicator, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -31,10 +37,15 @@ import { loadTimetableFromCSV } from './services/timetableCsvParser';
 import { colorPalette } from './constants';
 import type { CourseData, Subject, Exam, ActiveTerm } from './types';
 
+// 期間キー（storage.ts と同じ構成に合わせる）
+const buildPeriodKey = (year: number, term: ActiveTerm) => `${year}_${term}`;
+
 export default function Page() {
   const { height: windowHeight } = useWindowDimensions();
   const [headerH, setHeaderH] = useState(0);
   const [searchH, setSearchH] = useState(0);
+
+  // 既に時間割に入っている同名・同教員の授業色を使い回す（見た目の一貫性）
   const findExistingColor = (
     timetable: any,
     day: string,
@@ -60,8 +71,9 @@ export default function Page() {
     return colorPalette[idx];
   };
 
-  // カスタムフックの初期化
+  // テンプレ管理（default固定を廃止した useTemplates を想定）
   const {
+    templates,
     currentTemplateId,
     isLoading: isTemplateLoading,
     getCurrentTemplate,
@@ -75,10 +87,12 @@ export default function Page() {
   const { theme } = useAppTheme();
   const insets = useSafeAreaInsets();
   const tabBarHeight = useBottomTabBarHeight();
-  const { exams, addExam, updateExam, deleteExam, getAllRegisteredSubjects } = useExams({
-    currentTemplateId,
-    getCurrentTemplate,
-  });
+
+  const { exams, addExam, updateExam, deleteExam, getAllRegisteredSubjects, loadExams } =
+    useExams({
+      currentTemplateId,
+      getCurrentTemplate,
+    });
 
   // === 学期（前期/後期のみ） ===
   const [activeYear, setActiveYear] = useState<number>(new Date().getFullYear());
@@ -113,61 +127,91 @@ export default function Page() {
   const [pendingDay, setPendingDay] = useState<string>('');
   const [pendingPeriods, setPendingPeriods] = useState<string[]>([]);
 
+  // =========================
   // 初期化
-  useEffect(() => { initializeApp(); }, []);
+  // =========================
+  useEffect(() => {
+    void initializeApp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
+  /**
+   * 初期化：
+   * 1) 通知権限
+   * 2) templates を確保（0件なら1件作る）
+   * 3) 学期/学年/土曜を復元
+   * 4) 年度/学期 -> templateId を解決（無ければ current or 先頭を割当）
+   * 5) currentTemplateId を反映
+   * 6) CSV読み込み
+   */
   const initializeApp = async () => {
     try {
       setIsDataLoading(true);
-      await notificationService.requestPermissions();
 
-      const existingTemplates = await storageService.getTemplates();
-      if (!existingTemplates || existingTemplates.length === 0) {
-        const emptyTimetable = {};
-        await addTemplate('デフォルト時間割', emptyTimetable);
-        const updatedTemplates = await storageService.getTemplates();
-        await setTemplates(updatedTemplates);
-        const firstId = updatedTemplates[0]?.id;
-        if (firstId) {
-          await setCurrentTemplateId(firstId);
-          await storageService.saveCurrentTemplateId(firstId);
-        }
-      } else {
-        await setTemplates(existingTemplates);
-        const currentId = await storageService.getCurrentTemplateId();
-        await setCurrentTemplateId(currentId);
+      // 通知権限（失敗しても落とさない）
+      try {
+        await notificationService.requestPermissions();
+      } catch (e) {
+        console.warn('notification permission failed:', e);
       }
 
-      // 学期の復元（前期/後期のみ）
+      // 1) テンプレ一覧確保（0件なら1件作る）
+      let localTemplates = await storageService.getTemplates();
+      if (!localTemplates || localTemplates.length === 0) {
+        await addTemplate('時間割', {});
+        localTemplates = await storageService.getTemplates();
+      }
+      await setTemplates(localTemplates);
+
+      // 2) 学期/学年/土曜を復元
       const savedTerm = await storageService.getActiveTerm();
       setActiveTerm(savedTerm);
 
       const savedGrade = await storageService.getActiveGrade();
       setActiveGrade(savedGrade);
 
-      // 土曜表示の復元（未保存なら true）
       const savedShowSaturday = await storageService.getShowSaturday();
       if (typeof savedShowSaturday === 'boolean') setShowSaturday(savedShowSaturday);
 
-      // ここで「今の年度＋学期」→ currentTemplateId を紐づけておく
-      const currentId = await storageService.getCurrentTemplateId();
-      await storageService.saveTemplateIdForPeriod(
-        activeYear, // useState の初期値（今年）をそのまま使う
-        savedTerm,
-        currentId
-      );
+      // 3) period→templateId を解決
+      let templateId = await storageService.getTemplateIdForPeriod(activeYear, savedTerm);
 
-      // CSVから候補を読み込み
+      // 4) 無ければ「直近current or 先頭」を割り当てて periodMap に保存
+      if (!templateId) {
+        const cached = await storageService.getCurrentTemplateId();
+        templateId = cached || localTemplates[0]?.id || '';
+        if (templateId) {
+          await storageService.saveTemplateIdForPeriod(activeYear, savedTerm, templateId);
+        }
+      }
+
+      // 5) current に反映（ついでにキャッシュも更新）
+      if (templateId) {
+        await setCurrentTemplateId(templateId);
+        await storageService.saveCurrentTemplateId(templateId);
+      }
+
+      // 6) CSV
       const classes = await loadTimetableFromCSV();
       setCourseData(classes);
-    } catch (error) {
-      console.error('Error initializing app:', error);
+
+      // 試験も整合させたい場合はここで再ロード（templateIdが確定している前提）
+      try {
+        await loadExams();
+      } catch (e) {
+        console.warn('loadExams failed:', e);
+      }
+    } catch (e) {
+      console.error('initializeApp error:', e);
       Alert.alert('エラー', 'アプリの初期化中にエラーが発生しました');
     } finally {
       setIsDataLoading(false);
     }
   };
 
+  // =========================
+  // 年度/学期切替
+  // =========================
   const switchPeriod = useCallback(
     async (year: number, term: ActiveTerm) => {
       // まず state を変えて UI 上の表示を合わせる
@@ -179,20 +223,21 @@ export default function Page() {
 
       // 2) なければ「この期間用のテンプレート」を新規作成
       if (!templateId) {
-        // 空テンプレートを追加（既存の addTemplate を流用）
         const name = `${year}年度${term}時間割`;
-        await addTemplate(name, {}); // timetable は空オブジェクト
+        await addTemplate(name, {}, year);
 
         const updatedTemplates = await storageService.getTemplates();
         await setTemplates(updatedTemplates);
 
         // いま追加したテンプレートの id（末尾の要素と仮定）
-        templateId = updatedTemplates[updatedTemplates.length - 1].id;
+        templateId = updatedTemplates[updatedTemplates.length - 1]?.id;
 
         // 対応表に保存
-        await storageService.saveTemplateIdForPeriod(year, term, templateId);
+        if (templateId) {
+          await storageService.saveTemplateIdForPeriod(year, term, templateId);
+        }
       } else {
-        // 対応表にある場合 → templates と currentTemplateId を揃える
+        // 対応表にある場合 → templates を最新化（import等の整合性も担保）
         const updatedTemplates = await storageService.getTemplates();
         await setTemplates(updatedTemplates);
       }
@@ -202,19 +247,30 @@ export default function Page() {
       // 現在のテンプレートを切り替え
       await setCurrentTemplateId(templateId);
       await storageService.saveCurrentTemplateId(templateId);
+
+      // 試験も templateId 依存なので読み直す（UIのズレ防止）
+      try {
+        await loadExams();
+      } catch (e) {
+        console.warn('loadExams failed after switchPeriod:', e);
+      }
     },
-    [addTemplate, setTemplates, setCurrentTemplateId]
+    [activeYear, addTemplate, loadExams, setCurrentTemplateId, setTemplates]
   );
 
-  // === 学期フィルタ：前期→(前期/通年), 後期→(後期/通年) を表示 ===
+  // =========================
+  // 学期・学年・土曜表示フィルタ
+  // =========================
   const coursesByActiveTerm = useMemo(() => {
     return courseData.filter((c) => {
-      // 土曜非表示なら、候補も土曜日を除外（検索・候補モーダルの整合性）
+      // 土曜非表示なら、候補も土曜日を除外
       if (!showSaturday && c.曜日 === '土') return false;
 
       // 学期フィルタ
       const termOk =
-        activeTerm === '前期' ? c.履修期 === '前期' || c.履修期 === '通年' : c.履修期 === '後期' || c.履修期 === '通年';
+        activeTerm === '前期'
+          ? c.履修期 === '前期' || c.履修期 === '通年'
+          : c.履修期 === '後期' || c.履修期 === '通年';
 
       if (!termOk) return false;
 
@@ -230,7 +286,8 @@ export default function Page() {
   const courseCandidatesForModal = useMemo(() => {
     return coursesByActiveTerm.filter(
       (course) =>
-        course.曜日 === selectedDay && course.時限.split(',').map((s) => s.trim()).includes(String(selectedPeriod))
+        course.曜日 === selectedDay &&
+        course.時限.split(',').map((s) => s.trim()).includes(String(selectedPeriod))
     );
   }, [coursesByActiveTerm, selectedDay, selectedPeriod]);
 
@@ -243,23 +300,21 @@ export default function Page() {
       filtered[day] = {};
       for (const period of Object.keys(timetable[day])) {
         const subject = timetable[day][period];
-        if (subject) {
-          const term = subject.term || '';
-          // 前期選択時 → 前期 or 通年 or 年間 or 前期隔週 or 年間隔週
-          if (activeTerm === '前期') {
-            if (term.includes('前期') || term.includes('通年') || term.includes('年間')) {
-              filtered[day][period] = subject;
-            }
-          // 後期選択時 → 後期 or 通年 or 年間 or 後期隔週 or 年間隔週
-          } else {
-            if (term.includes('後期') || term.includes('通年') || term.includes('年間')) {
-              filtered[day][period] = subject;
-            }
+        if (!subject) continue;
+
+        const term = subject.term || '';
+
+        if (activeTerm === '前期') {
+          if (term.includes('前期') || term.includes('通年') || term.includes('年間')) {
+            filtered[day][period] = subject;
+          }
+        } else {
+          if (term.includes('後期') || term.includes('通年') || term.includes('年間')) {
+            filtered[day][period] = subject;
           }
         }
       }
     }
-
     return filtered;
   }, [getCurrentTemplate, activeTerm]);
 
@@ -270,13 +325,24 @@ export default function Page() {
 
   // 時間割が占めるべき高さ（画面の残り）を計算
   const timetableHeight = useMemo(() => {
-    const TOP_PADDING = 10; // contentContainerStyle.paddingTop
-    const HEADER_MB = 10; // styles.header.marginBottom
-    const FINE_TUNE = 8; // 微調整（0〜16で好み）
-    const h = windowHeight - insets.top - tabBarHeight - TOP_PADDING - headerH - HEADER_MB - searchH - FINE_TUNE; // 画面全体高さ から「上の安全領域」「タブバー」「上部UI（ヘッダー・検索）」を引く
+    const TOP_PADDING = 10;
+    const HEADER_MB = 10;
+    const FINE_TUNE = 8;
+    const h =
+      windowHeight -
+      insets.top -
+      tabBarHeight -
+      TOP_PADDING -
+      headerH -
+      HEADER_MB -
+      searchH -
+      FINE_TUNE;
     return h;
   }, [windowHeight, insets.top, tabBarHeight, headerH, searchH]);
 
+  // =========================
+  // 出席更新（合算上限チェック付き）
+  // =========================
   const handleAttendanceUpdate = useCallback(
     async (type: 'attendance' | 'absence' | 'late') => {
       const template = getCurrentTemplate();
@@ -285,9 +351,9 @@ export default function Page() {
       const day = selectedDay;
       const period = String(selectedPeriod);
 
-      // ★ ここがポイント：storage から最新を読み直す
-      const templates = await storageService.getTemplates();
-      const fresh = templates.find((t) => t.id === template.id);
+      // 最新を読み直す
+      const templatesFromStorage = await storageService.getTemplates();
+      const fresh = templatesFromStorage.find((t) => t.id === template.id);
       const current: Subject | undefined = fresh?.timetable?.[day]?.[period];
       if (!current) return;
 
@@ -305,14 +371,42 @@ export default function Page() {
     [getCurrentTemplate, selectedDay, selectedPeriod, updateSubject, setTemplates]
   );
 
+  // =========================
+  // Import後の再ロード（重要）
+  // =========================
+  const reloadAfterImport = useCallback(async () => {
+    const updated = await storageService.getTemplates();
+    await setTemplates(updated);
+
+    // importTemplateData() は saveCurrentTemplateId(newTemplateId) をする想定
+    const cached = await storageService.getCurrentTemplateId();
+    if (cached) {
+      await setCurrentTemplateId(cached);
+      try {
+        await loadExams();
+      } catch (e) {
+        console.warn('loadExams failed after import:', e);
+      }
+    }
+  }, [setTemplates, setCurrentTemplateId, loadExams]);
+
+  // =========================
+  // Render
+  // =========================
   return isTemplateLoading || isDataLoading ? (
     <View style={styles.loadingContainer}>
       <ActivityIndicator size="large" color="#4CAF50" />
       <Text style={styles.loadingText}>読み込み中...</Text>
     </View>
   ) : (
-    <SafeAreaView style={[styles.container, { backgroundColor: theme.backgroundColor }]} edges={['top', 'left', 'right']}>
-      <LinearGradient colors={[theme.backgroundColor, theme.backgroundColor]} style={styles.gradientBackground}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: theme.backgroundColor }]}
+      edges={['top', 'left', 'right']}
+    >
+      <LinearGradient
+        colors={[theme.backgroundColor, theme.backgroundColor]}
+        style={styles.gradientBackground}
+      >
         <ScrollView
           contentInsetAdjustmentBehavior="never"
           style={styles.scrollView}
@@ -324,10 +418,8 @@ export default function Page() {
         >
           {/* ヘッダー部分 */}
           <View style={styles.header} onLayout={(e) => setHeaderH(e.nativeEvent.layout.height)}>
-            {/* タイトル */}
             <Text style={[styles.title, { color: theme.textColor }]}>時間割表</Text>
 
-            {/* 共有ボタンと設定ボタン */}
             <View style={styles.headerButtons}>
               {/* 共有ボタン */}
               <TouchableOpacity
@@ -363,7 +455,8 @@ export default function Page() {
                 const timetable = getCurrentTemplate()?.timetable || {};
                 const seed = `${course.履修期}|${course.曜日}|${course.科目名}|${periods.join('-')}`;
                 const decidedColor =
-                  findExistingColor(timetable, course.曜日, course.科目名, course.教員) ?? pickColorBySeed(seed);
+                  findExistingColor(timetable, course.曜日, course.科目名, course.教員) ??
+                  pickColorBySeed(seed);
 
                 const subject: Subject = {
                   id: `${course.曜日}-${periods[0]}-${course.科目名}`,
@@ -396,7 +489,6 @@ export default function Page() {
             <TimetableGrid
               timetable={filteredTimetable}
               theme={theme}
-              // ✅ TimetableGrid 側で曜日配列を切り替えられるようにする
               daysOfWeekOverride={daysOfWeekOverride}
               onCellPress={(day, period) => {
                 setSelectedDay(day);
@@ -404,9 +496,9 @@ export default function Page() {
                 const subject = getCurrentTemplate()?.timetable?.[day]?.[period] ?? null;
                 if (subject) {
                   setSelectedSubject(subject);
-                  setIsAttendanceModalVisible(true); // 登録済み → 出席モーダルを表示
+                  setIsAttendanceModalVisible(true);
                 } else {
-                  setIsCourseModalVisible(true); // 未登録 → 授業候補モーダルを表示
+                  setIsCourseModalVisible(true);
                 }
               }}
             />
@@ -424,13 +516,12 @@ export default function Page() {
               }}
               onAddPress={() => {
                 setSelectedExam(null);
-                setExamDate(new Date()); // 新規のときは今日など
+                setExamDate(new Date());
                 setIsExamModalVisible(true);
               }}
             />
           </View>
 
-          {/* Google カレンダー「今後の予定」 */}
           <View style={styles.calendarSection}>
             <Text style={[styles.calendarTitle, { color: theme.textColor }]}>今後の予定</Text>
             <CalendarView theme={theme} />
@@ -477,7 +568,7 @@ export default function Page() {
           }}
         />
 
-        {/* ✅ まとめモーダル */}
+        {/* まとめモーダル */}
         <TimetableSettingsModal
           visible={isOptionsModalVisible}
           onClose={() => setIsOptionsModalVisible(false)}
@@ -493,28 +584,25 @@ export default function Page() {
           }}
         />
 
-        {/* モーダル類 */}
+        {/* 出席モーダル */}
         <AttendanceModal
           visible={isAttendanceModalVisible}
           subject={selectedSubject}
           onClose={() => setIsAttendanceModalVisible(false)}
-          // 親側の合算上限チェック付きロジックを渡す
           onUpdate={handleAttendanceUpdate}
           onDelete={async () => {
             const template = getCurrentTemplate();
             const templateId = template?.id;
             if (!templateId) return;
 
-            // 1) 最新を読み直す（保存競合・古い参照を避ける）
-            const templates = await storageService.getTemplates();
-            const idx = templates.findIndex((t) => t.id === templateId);
+            const templatesFromStorage = await storageService.getTemplates();
+            const idx = templatesFromStorage.findIndex((t) => t.id === templateId);
             if (idx < 0) return;
 
             const day = selectedDay;
             const period = String(selectedPeriod);
 
-            // timetable をミュータブルに扱うためコピー（必要に応じて浅いコピーでOK）
-            const tt = { ...(templates[idx].timetable || {}) };
+            const tt = { ...(templatesFromStorage[idx].timetable || {}) };
             tt[day] = { ...(tt[day] || {}) };
 
             const target = tt[day]?.[period];
@@ -544,8 +632,9 @@ export default function Page() {
             }
             if (tt[day] && Object.keys(tt[day]).length === 0) delete tt[day];
 
-            templates[idx] = { ...templates[idx], timetable: tt };
-            await storageService.saveTemplates(templates);
+            templatesFromStorage[idx] = { ...templatesFromStorage[idx], timetable: tt };
+            await storageService.saveTemplates(templatesFromStorage);
+
             const refreshed = await storageService.getTemplates();
             await setTemplates(refreshed);
 
@@ -557,6 +646,7 @@ export default function Page() {
             if (!templateId) return;
             const day = selectedDay;
             const period = String(selectedPeriod);
+
             await updateSubject(templateId, day, period, updated);
             const updatedTemplates = await storageService.getTemplates();
             await setTemplates(updatedTemplates);
@@ -586,18 +676,14 @@ export default function Page() {
           onDatePickerVisibilityChange={(visible) => setShowDatePicker(visible)}
         />
 
-        {/* テンプレート & 学期モーダル（前期/後期のみ） */}
+        {/* 年度/学期モーダル */}
         <YearTermModal
           visible={isYearTermModalVisible}
           activeYear={activeYear}
           activeTerm={activeTerm}
           activeGrade={activeGrade}
-          onChangeYear={(year) => {
-            setActiveYear(year);
-          }}
-          onChangeTerm={(term) => {
-            setActiveTerm(term);
-          }}
+          onChangeYear={(year) => setActiveYear(year)}
+          onChangeTerm={(term) => setActiveTerm(term)}
           onChangeGrade={(grade) => {
             setActiveGrade(grade);
             storageService.saveActiveGrade(grade);
@@ -609,18 +695,19 @@ export default function Page() {
           }}
         />
 
+        {/* 共有モーダル */}
         <TemplateShareModal
           visible={isShareModalVisible}
           onClose={() => setIsShareModalVisible(false)}
           templateId={currentTemplateId}
           templateName={getCurrentTemplate()?.name ?? ''}
           onImportSuccess={async () => {
-            // インポート後にテンプレ一覧を更新
-            const updated = await storageService.getTemplates();
-            await setTemplates(updated);
+            // import後は templates + currentTemplateId を必ず整合させる
+            await reloadAfterImport();
           }}
         />
 
+        {/* 授業登録確認モーダル */}
         <ClassRegistrationModal
           visible={isClassRegModalVisible}
           subject={pendingSubject}
@@ -633,7 +720,6 @@ export default function Page() {
 
             const subject: Subject = { ...pendingSubject, color };
 
-            // ★ ここで初めて storage / update を触る
             await updateSubjectMulti(templateId, pendingDay, pendingPeriods, subject);
             const updatedTemplates = await storageService.getTemplates();
             await setTemplates(updatedTemplates);
@@ -648,20 +734,17 @@ export default function Page() {
 
 const styles = StyleSheet.create({
   // ==== 画面全体レイアウト ====
-  // 画面いっぱいに広げるための基本コンテナ
   container: {
     flex: 1,
   },
 
   // ==== ローディング画面関連 ====
-  // ローディング中に中央にスピナーと文字を出すコンテナ
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#fff',
   },
-  // 「読み込み中...」のテキストスタイル
   loadingText: {
     marginTop: 10,
     fontSize: 16,
@@ -669,60 +752,51 @@ const styles = StyleSheet.create({
   },
 
   // ==== スクロール / 背景 ====
-  // 縦方向にスクロールさせるためのラッパ
   scrollView: {
     flex: 1,
   },
-  // LinearGradient の内側コンテナ（全体の余白をここで確保）
   gradientBackground: {
     flex: 1,
   },
 
-  // ==== ヘッダー（タイトル + 共有 / 年度・学期ボタン） ====
-  // 左にタイトル、右にボタンを並べる横並びレイアウト
+  // ==== ヘッダー（タイトル + 共有 / 設定ボタン） ====
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 5,
   },
-  // 右側の Chip（共有 / 年度・学期）を横並びにするコンテナ
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
   },
-  // アイコンボタンのスタイル
   iconButton: {
     width: 34,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    marginLeft: 8, // 2つ目以降の間隔
-  },  
-  // 「時間割表」のタイトルスタイル
+    marginLeft: 8,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
   },
   timetableFill: {
-    minHeight: 0, // ★ ScrollView配下での潰れ/伸びの事故防止
+    minHeight: 0,
   },
 
   // ==== 試験一覧セクション ====
-  // 時間割グリッドの下に表示される試験リスト周りの余白
   examSection: {
     marginTop: 20,
     marginBottom: 20,
   },
 
   // ==== Google カレンダー「今後の予定」セクション ====
-  // カレンダーのブロック全体の余白
   calendarSection: {
     marginVertical: 20,
     marginBottom: 8,
     paddingHorizontal: 10,
   },
-  // 「今後の予定」のタイトル
   calendarTitle: {
     fontSize: 20,
     fontWeight: 'bold',

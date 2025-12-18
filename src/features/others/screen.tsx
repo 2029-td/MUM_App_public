@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.35)',
   },
   dialog: {
-    width: '100%',
+    width: '90%',
     maxWidth: 560, // タブレットで横に伸びすぎない
     maxHeight: '80%',
     borderRadius: 16,

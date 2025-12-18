@@ -1,12 +1,22 @@
 // src/features/timetable/services/storage.ts
+//
+// - ThemePreference 型は src/components/useColorScheme.ts を唯一の定義元にする
+// - 保存するのは "system" | "light" | "dark"
+// - 旧データ（default 等の想定外値）は "system" に移行
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { STORAGE_KEYS } from '../constants';
-import type { TimetableTemplate, Exam, Theme, Subject, ActiveTerm } from '../types';
+import type { TimetableTemplate, Exam, Subject, ActiveTerm } from '../types';
+
+// ★ ThemePreference の型はここから参照する（唯一の定義元）
+import type { ThemePreference } from '~/components/useColorScheme';
 
 const buildPeriodKey = (year: number, term: ActiveTerm) => `${year}_${term}`;
 
 export const storageService = {
+  // =========================
+  // Templates
+  // =========================
   async getTemplates(): Promise<TimetableTemplate[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.TEMPLATES);
@@ -22,6 +32,41 @@ export const storageService = {
     }
   },
 
+  async saveTemplates(templates: TimetableTemplate[]): Promise<void> {
+    try {
+      const data = JSON.stringify(templates);
+      await AsyncStorage.setItem(STORAGE_KEYS.TEMPLATES, data);
+    } catch (error) {
+      console.error('Error saving templates:', error);
+      throw error;
+    }
+  },
+
+  // =========================
+  // Current template (cache)
+  // =========================
+  async getCurrentTemplateId(): Promise<string> {
+    try {
+      const id = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TEMPLATE);
+      return id || '';
+    } catch (error) {
+      console.error('Error getting current template ID:', error);
+      return '';
+    }
+  },
+
+  async saveCurrentTemplateId(id: string): Promise<void> {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_TEMPLATE, id);
+    } catch (error) {
+      console.error('Error saving current template ID:', error);
+      throw error;
+    }
+  },
+
+  // =========================
+  // Period -> templateId mapping
+  // =========================
   async getTemplateIdForPeriod(year: number, term: ActiveTerm): Promise<string | null> {
     try {
       const mapStr = await AsyncStorage.getItem(STORAGE_KEYS.TEMPLATE_BY_PERIOD);
@@ -52,35 +97,9 @@ export const storageService = {
     }
   },
 
-  async saveTemplates(templates: TimetableTemplate[]): Promise<void> {
-    try {
-      const data = JSON.stringify(templates);
-      await AsyncStorage.setItem(STORAGE_KEYS.TEMPLATES, data);
-    } catch (error) {
-      console.error('Error saving templates:', error);
-      throw error;
-    }
-  },
-
-  async getCurrentTemplateId(): Promise<string> {
-    try {
-      const id = await AsyncStorage.getItem(STORAGE_KEYS.CURRENT_TEMPLATE);
-      return id || 'default';
-    } catch (error) {
-      console.error('Error getting current template ID:', error);
-      return 'default';
-    }
-  },
-
-  async saveCurrentTemplateId(id: string): Promise<void> {
-    try {
-      await AsyncStorage.setItem(STORAGE_KEYS.CURRENT_TEMPLATE, id);
-    } catch (error) {
-      console.error('Error saving current template ID:', error);
-      throw error;
-    }
-  },
-
+  // =========================
+  // Exams
+  // =========================
   async getExams(): Promise<Exam[]> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.EXAMS);
@@ -104,11 +123,11 @@ export const storageService = {
   async exportTemplateData(templateId: string) {
     try {
       const templates = await this.getTemplates();
-      const template = templates.find(t => t.id === templateId);
+      const template = templates.find((t) => t.id === templateId);
       if (!template) throw new Error('テンプレートが見つかりません');
 
       const exams = await this.getExams();
-      const templateExams = exams.filter(exam => exam.templateId === templateId);
+      const templateExams = exams.filter((exam) => exam.templateId === templateId);
 
       return {
         template,
@@ -144,9 +163,9 @@ export const storageService = {
             Object.fromEntries(
               Object.entries(periods as { [key: string]: Subject }).map(([period, subject]) => [
                 period,
-                { ...subject, id: `subject_${subject.id}_${timestamp}` }
+                { ...subject, id: `subject_${subject.id}_${timestamp}` },
               ])
-            )
+            ),
           ])
         ),
       };
@@ -160,6 +179,8 @@ export const storageService = {
 
       await this.saveTemplates([...existingTemplates, updatedTemplate]);
       await this.saveExams([...existingExams, ...updatedExams]);
+
+      // 取り込み直後は「最後に開いたテンプレ」としてキャッシュ
       await this.saveCurrentTemplateId(newTemplateId);
 
       return { templateId: newTemplateId, template: updatedTemplate, exams: updatedExams };
@@ -169,11 +190,12 @@ export const storageService = {
     }
   },
 
-  // === 学期（前期/後期のみ） ===
+  // =========================
+  // Active term / grade
+  // =========================
   async getActiveTerm(): Promise<ActiveTerm> {
     try {
       const v = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_TERM);
-      // 旧データで '通年' が入っていても前期に丸める
       if (v === '後期') return '後期';
       return '前期';
     } catch (e) {
@@ -182,7 +204,6 @@ export const storageService = {
     }
   },
 
-  // storageService.ts
   async getActiveGrade(): Promise<number> {
     try {
       const v = await AsyncStorage.getItem(STORAGE_KEYS.ACTIVE_GRADE);
@@ -202,30 +223,46 @@ export const storageService = {
     }
   },
 
-  async getThemeId(): Promise<string> {
+  // =========================
+  // Theme preference (system/light/dark)
+  // =========================
+  async getThemePreference(): Promise<ThemePreference> {
     try {
-      const themeId = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
-      return themeId || 'default';
+      const v = await AsyncStorage.getItem(STORAGE_KEYS.THEME);
+
+      // 旧データ移行：
+      // - null / unknown / "default" 等 → system
+      // - light/dark/system はそのまま
+      if (v !== 'system' && v !== 'light' && v !== 'dark') {
+        await AsyncStorage.setItem(STORAGE_KEYS.THEME, 'system');
+        return 'system';
+      }
+
+      return v;
     } catch (error) {
-      console.error('Error getting theme ID:', error);
-      return 'default';
+      console.error('Error getting theme preference:', error);
+      return 'system';
     }
   },
 
-  async saveThemeId(themeId: string): Promise<void> {
+  async saveThemePreference(pref: ThemePreference): Promise<void> {
     try {
-      await AsyncStorage.setItem(STORAGE_KEYS.THEME, themeId);
+      const normalized: ThemePreference =
+        pref === 'dark' ? 'dark' : pref === 'light' ? 'light' : 'system';
+      await AsyncStorage.setItem(STORAGE_KEYS.THEME, normalized);
     } catch (error) {
-      console.error('Error saving theme ID:', error);
+      console.error('Error saving theme preference:', error);
       throw error;
     }
   },
 
-  // === 土曜日表示 ===
+  // =========================
+  // Show Saturday
+  // =========================
   async getShowSaturday(): Promise<boolean> {
     try {
       const v = await AsyncStorage.getItem(STORAGE_KEYS.SHOW_SATURDAY);
-      if (v == null) return true; // デフォルトは表示
+      if (v == null) return true;
       return v === '1';
     } catch (e) {
       console.error('Error getShowSaturday:', e);
