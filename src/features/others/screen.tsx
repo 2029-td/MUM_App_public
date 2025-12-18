@@ -13,7 +13,7 @@ const contactUrl =
   'https://docs.google.com/forms/d/e/1FAIpQLSckh5xw6YUm6qpWSZtU23q_WIEhBuQZtEYRz00uYeFhY2Q-HQ/viewform?usp=header';
 const privacyUrl = 'https://www.matsulab.org/privacypolicy/mum';
 const surveyUrl =
-  'https://forms.gle/TnV5QnRmNytDszmK7';
+  'https://forms.gle/43fSxGwAoMCfaQhb9';
 
 const PolicyScreen = () => {
   const insets = useSafeAreaInsets();
