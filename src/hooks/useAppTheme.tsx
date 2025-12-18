@@ -1,9 +1,4 @@
 // src/hooks/useAppTheme.tsx
-//
-// - テーマ定義は src/components/useColorScheme.ts に集約
-// - 設定は system/light/dark（保存値）
-// - 実際に適用するのは light/dark（2本）
-// - system のときは端末テーマに追従
 
 import React, { createContext, useContext, useEffect, useMemo, useState, useCallback } from 'react';
 

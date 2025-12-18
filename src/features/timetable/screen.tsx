@@ -1,9 +1,4 @@
 // src/features/timetable/screen.tsx
-//
-// - 年度/学期ごとにテンプレIDを紐づけて保存（TEMPLATE_BY_PERIOD）
-// - 年度/学期切替モーダルから switchPeriod を呼び、表示テンプレを切替
-// - 共有（export/import）後もテンプレ一覧と currentTemplateId を整合させる
-// - テーマは useAppTheme から受け取った theme を利用（light/dark の2本）
 
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { View, Text, ScrollView, Alert, ActivityIndicator, StyleSheet, useWindowDimensions, TouchableOpacity } from 'react-native';

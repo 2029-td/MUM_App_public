@@ -44,7 +44,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
   todo,
   existingTags,
 }) => {
-  const { theme, currentThemeId } = useAppTheme();
+  const { theme, themeId } = useAppTheme();
   const { colors } = useStyles();
   const [text, setText] = useState('');
   const [category, setCategory] = useState('');
@@ -206,7 +206,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
               ]}
               selectionColor={theme.textColor}
               placeholderTextColor={
-                currentThemeId === 'dark' ? '#A9B1C0' : '#9AA4B2'
+                themeId === 'dark' ? '#A9B1C0' : '#9AA4B2'
               }
               autoCapitalize="none"
             />
@@ -291,7 +291,7 @@ const AddEditTodoModal: React.FC<AddEditTodoModalProps> = ({
                 ]}
                 selectionColor={theme.textColor}
                 placeholderTextColor={
-                  currentThemeId === 'dark' ? '#A9B1C0' : '#9AA4B2'
+                  themeId === 'dark' ? '#A9B1C0' : '#9AA4B2'
                 }
                 autoCapitalize="none"
               />

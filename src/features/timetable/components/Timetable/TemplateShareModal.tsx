@@ -1,19 +1,15 @@
 // src/features/timetable/components/Timetable/TemplateShareModal.tsx
 
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  Modal,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-  import * as Sharing from 'expo-sharing';
+import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import { storageService } from '../../services/storage';
+
+// ★ 追加：テーマ
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { compositeOver } from '~/styles/color';
 
 interface TemplateShareModalProps {
   visible: boolean;
@@ -30,6 +26,9 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
   templateName,
   onImportSuccess,
 }) => {
+  const { theme, themeId } = useAppTheme();
+  const isDark = themeId === 'dark';
+
   const [isLoading, setIsLoading] = useState(false);
 
   const handleExport = async () => {
@@ -77,9 +76,7 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
 
         await new Promise(resolve => setTimeout(resolve, 500));
 
-        Alert.alert('成功', '時間割を取り込みました', [
-          { text: 'OK', onPress: onClose }
-        ]);
+        Alert.alert('成功', '時間割を取り込みました', [{ text: 'OK', onPress: onClose }]);
       }
     } catch (error) {
       console.error('Error importing template:', error);
@@ -89,42 +86,53 @@ export const TemplateShareModal: React.FC<TemplateShareModalProps> = ({
     }
   };
 
+  const overlayBg = 'rgba(0,0,0,0.55)';
+
+  const cardBg = isDark
+    ? compositeOver('rgba(255,255,255,0.10)', theme.backgroundColor)
+    : compositeOver('rgba(0,0,0,0.06)', '#FFFFFF');
+
+  const borderColor = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+
+  const mutedText = isDark ? 'rgba(255,255,255,0.60)' : 'rgba(0,0,0,0.55)';
+
+  const loadingCardBg = isDark
+    ? compositeOver('rgba(0,0,0,0.20)', cardBg)
+    : compositeOver('rgba(0,0,0,0.06)', cardBg);
+
+  const exportBg = isDark ? '#2E7D32' : '#4CAF50';
+  const importBg = isDark ? '#1E5AA8' : '#2196F3';
+
+  const buttonBorder = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.14)';
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={[styles.modalContainer, { backgroundColor: overlayBg }]}>
+        <View style={[styles.modalContent, { backgroundColor: cardBg, borderColor, borderWidth: 1 }]}>
 
           {/* ✅ 右上の「×」閉じるボタン */}
-          <TouchableOpacity
-            onPress={onClose}
-            style={styles.closeIconButton}
-          >
-            <Text style={styles.closeIcon}>×</Text>
+          <TouchableOpacity onPress={onClose} style={styles.closeIconButton}>
+            <Text style={[styles.closeIcon, { color: theme.textColor }]}>×</Text>
           </TouchableOpacity>
 
-          <Text style={styles.title}>時間割の共有</Text>
+          <Text style={[styles.title, { color: theme.textColor }]}>時間割の共有</Text>
 
           {isLoading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4CAF50" />
-              <Text style={styles.loadingText}>処理中...</Text>
+            <View style={[styles.loadingContainer, { backgroundColor: loadingCardBg, borderColor, borderWidth: 1 }]}>
+              <ActivityIndicator size="large" color={isDark ? 'rgba(255,255,255,0.85)' : '#2E7D32'} />
+              <Text style={[styles.loadingText, { color: mutedText }]}>処理中...</Text>
             </View>
           ) : (
             <>
               <TouchableOpacity
-                style={[styles.button, styles.exportButton]}
+                style={[styles.button, styles.exportButton, { backgroundColor: exportBg, borderColor: buttonBorder, borderWidth: 1 }]}
                 onPress={handleExport}
               >
                 <Text style={styles.buttonText}>共有する</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.button, styles.importButton]}
+                style={[styles.button, styles.importButton, { backgroundColor: importBg, borderColor: buttonBorder, borderWidth: 1 }]}
                 onPress={handleImport}
               >
                 <Text style={styles.buttonText}>取り込む</Text>
@@ -142,18 +150,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    // backgroundColor は動的に差し込み
+    padding: 16,
   },
   modalContent: {
-    backgroundColor: 'white',
+    // backgroundColor は動的に差し込み
     padding: 20,
-    borderRadius: 10,
+    borderRadius: 12,
     width: '80%',
     maxWidth: 400,
     elevation: 5,
+    // border は動的に差し込み
   },
 
-  /* ✅ 追加: 右上の × ボタン */
+  /* ✅ 右上の×ボタン */
   closeIconButton: {
     position: 'absolute',
     top: 8,
@@ -167,7 +177,6 @@ const styles = StyleSheet.create({
   },
   closeIcon: {
     fontSize: 22,
-    color: '#333',
     fontWeight: 'bold',
   },
 
@@ -176,32 +185,28 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
     marginBottom: 16,
-    color: '#333',
   },
-  subtitle: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
-  },
+
   loadingContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 20,
+    padding: 16,
+    borderRadius: 12,
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#666',
   },
+
   button: {
     padding: 15,
-    borderRadius: 5,
+    borderRadius: 10,
     marginBottom: 10,
     alignItems: 'center',
   },
-  exportButton: { backgroundColor: '#4CAF50' },
-  importButton: { backgroundColor: '#2196F3' },
+  exportButton: {},
+  importButton: {},
+
   buttonText: {
     color: 'white',
     fontSize: 16,

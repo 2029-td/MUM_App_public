@@ -1,17 +1,11 @@
 // src/features/timetable/components/Exam/ExamForm.tsx
 
 import React from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  ScrollView,
-  StyleSheet,
-  Platform,
-} from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { Exam, Subject } from '../../types';
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { compositeOver } from '~/styles/color';
 
 interface ExamFormProps {
   exam: Partial<Exam>;
@@ -30,7 +24,6 @@ const getToday = () => {
   return t;
 };
 
-
 export const ExamForm: React.FC<ExamFormProps> = ({
   exam,
   subjects,
@@ -39,27 +32,55 @@ export const ExamForm: React.FC<ExamFormProps> = ({
   onExamChange,
   onDateChange,
   onDatePickerVisibilityChange,
-  isEditing = false,
 }) => {
+  const { theme, themeId } = useAppTheme();
+  const isDark = themeId === 'dark';
+
+  const sectionBg = isDark
+    ? compositeOver('rgba(255,255,255,0.08)', theme.backgroundColor)
+    : '#f0f0f0';
+
+  const listBg = isDark
+    ? compositeOver('rgba(255,255,255,0.06)', theme.backgroundColor)
+    : '#ffffff';
+
+  const borderColor = isDark ? 'rgba(255,255,255,0.18)' : '#dddddd';
+  const dividerColor = isDark ? 'rgba(255,255,255,0.12)' : '#eeeeee';
+
+  const selectedBg = isDark
+    ? compositeOver('rgba(255,255,255,0.16)', theme.backgroundColor)
+    : '#e3f2fd';
+
+  const inputBg = isDark
+    ? compositeOver('rgba(255,255,255,0.08)', theme.backgroundColor)
+    : '#ffffff';
+
+  const placeholder = isDark ? 'rgba(255,255,255,0.45)' : '#999';
 
   const handleSubjectPress = (subjectId: string) => {
-    // すでに選択されている科目をもう一度押したら解除
     if (exam.subjectId === subjectId) {
       onExamChange({ ...exam, subjectId: '' });
     } else {
       onExamChange({ ...exam, subjectId });
     }
   };
+
   return (
     <View style={styles.container}>
       {/* 日付選択 */}
       <View style={styles.dateSection}>
-        <Text style={styles.sectionLabel}>試験日</Text>
+        <Text style={[styles.sectionLabel, { color: theme.textColor }]}>
+          試験日
+        </Text>
+
         <TouchableOpacity
-          style={styles.datePickerButton}
+          style={[
+            styles.datePickerButton,
+            { backgroundColor: sectionBg, borderColor },
+          ]}
           onPress={() => onDatePickerVisibilityChange(true)}
         >
-          <Text style={styles.datePickerButtonText}>
+          <Text style={[styles.datePickerButtonText, { color: theme.textColor }]}>
             {examDate.toLocaleDateString()}
           </Text>
         </TouchableOpacity>
@@ -69,7 +90,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
             value={examDate}
             mode="date"
             display="default"
-            minimumDate={getToday()}  // ← ここに変更
+            minimumDate={getToday()}
             onChange={(_, selectedDate) => {
               onDatePickerVisibilityChange(Platform.OS === 'ios');
               if (selectedDate) {
@@ -83,30 +104,64 @@ export const ExamForm: React.FC<ExamFormProps> = ({
 
       {/* 科目選択 */}
       <View style={styles.subjectSection}>
-        <Text style={styles.sectionLabel}>科目</Text>
-        <ScrollView style={styles.subjectList}>
-          {subjects.map(subject => (
-            <TouchableOpacity
-              key={subject.id}
-              style={[
-                styles.subjectItem,
-                exam.subjectId === subject.id && styles.selectedSubjectItem,
-              ]}
-              onPress={() => handleSubjectPress(subject.id)}
-            >
-              <Text style={styles.subjectName}>{subject.name}</Text>
-              <Text style={styles.subjectInfo}>{subject.professor}</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={[styles.sectionLabel, { color: theme.textColor }]}>
+          科目
+        </Text>
+
+        <ScrollView
+          style={[
+            styles.subjectList,
+            { backgroundColor: listBg, borderColor },
+          ]}
+        >
+          {subjects.map(subject => {
+            const selected = exam.subjectId === subject.id;
+
+            return (
+              <TouchableOpacity
+                key={subject.id}
+                style={[
+                  styles.subjectItem,
+                  {
+                    backgroundColor: selected ? selectedBg : listBg,
+                    borderBottomColor: dividerColor,
+                  },
+                ]}
+                onPress={() => handleSubjectPress(subject.id)}
+              >
+                <Text style={[styles.subjectName, { color: theme.textColor }]}>
+                  {subject.name}
+                </Text>
+                <Text
+                  style={[
+                    styles.subjectInfo,
+                    { color: isDark ? 'rgba(255,255,255,0.65)' : '#666' },
+                  ]}
+                >
+                  {subject.professor}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </ScrollView>
       </View>
 
       {/* 試験会場 */}
       <View style={styles.inputSection}>
-        <Text style={styles.sectionLabel}>試験会場</Text>
+        <Text style={[styles.sectionLabel, { color: theme.textColor }]}>
+          試験会場
+        </Text>
         <TextInput
-          style={styles.input}
+          style={[
+            styles.input,
+            {
+              backgroundColor: inputBg,
+              borderColor,
+              color: theme.textColor,
+            },
+          ]}
           placeholder="試験会場を入力"
+          placeholderTextColor={placeholder}
           value={exam.location}
           onChangeText={(text) => onExamChange({ ...exam, location: text })}
         />
@@ -114,10 +169,21 @@ export const ExamForm: React.FC<ExamFormProps> = ({
 
       {/* メモ */}
       <View style={styles.inputSection}>
-        <Text style={styles.sectionLabel}>メモ</Text>
+        <Text style={[styles.sectionLabel, { color: theme.textColor }]}>
+          メモ
+        </Text>
         <TextInput
-          style={[styles.input, styles.multilineInput]}
+          style={[
+            styles.input,
+            styles.multilineInput,
+            {
+              backgroundColor: inputBg,
+              borderColor,
+              color: theme.textColor,
+            },
+          ]}
           placeholder="メモを入力"
+          placeholderTextColor={placeholder}
           value={exam.note}
           onChangeText={(text) => onExamChange({ ...exam, note: text })}
           multiline
@@ -130,7 +196,7 @@ export const ExamForm: React.FC<ExamFormProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    padding:10,
+    padding: 10,
   },
   dateSection: {
     marginBottom: 10,
@@ -145,50 +211,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     marginBottom: 8,
-    color: '#333',
   },
   datePickerButton: {
-    backgroundColor: '#f0f0f0',
     padding: 12,
     borderRadius: 5,
     alignItems: 'center',
+    borderWidth: 1,
   },
   datePickerButtonText: {
     fontSize: 16,
-    color: '#333',
   },
   subjectList: {
     maxHeight: 150,
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 5,
   },
   subjectItem: {
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    backgroundColor: '#fff',
-  },
-  selectedSubjectItem: {
-    backgroundColor: '#e3f2fd',
   },
   subjectName: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
   },
   subjectInfo: {
     fontSize: 12,
-    color: '#666',
     marginTop: 4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ddd',
     borderRadius: 5,
     padding: 12,
     fontSize: 16,
-    backgroundColor: '#fff',
   },
   multilineInput: {
     height: 50,

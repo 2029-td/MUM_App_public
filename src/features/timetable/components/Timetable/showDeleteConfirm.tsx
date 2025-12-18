@@ -1,5 +1,3 @@
-// src/features/timetable/components/Timetable/showDeleteConfirm.ts
-
 import { Alert } from 'react-native';
 
 type Options = {
@@ -10,7 +8,9 @@ type Options = {
 };
 
 /**
- * 科目削除の確認ダイアログを表示する共通関数
+ * 科目削除の確認ダイアログ（React Native Alert）
+ * - Web(document)依存なし
+ * - 追加コンポーネント不要
  */
 export function showDeleteConfirm(onConfirm: () => void, opts: Options = {}) {
   const {

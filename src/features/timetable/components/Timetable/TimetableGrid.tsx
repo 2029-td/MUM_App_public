@@ -1,7 +1,10 @@
+// src/features/timetable/components/Timetable/TimetableGrid.tsx
+
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { daysOfWeek, periods } from '../../constants';
 import type { Subject, Theme } from '../../types';
+import { useStyles } from '~/styles'; // ★追加：3系統セル色を使う
 
 interface TimetableGridProps {
   timetable: {
@@ -26,18 +29,28 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
 }) => {
   const displayDays = daysOfWeekOverride ?? daysOfWeek;
 
+  // ★追加：Timetable専用色（曜日/数字/＋セル）
+  const { colors } = useStyles();
+
+  const headerBg = colors.timetableHeaderBg;
+  const indexBg = colors.timetableIndexBg;
+  const addBg = colors.timetableAddBg;
+  const gridLine = colors.timetableGridLine;
+  const plusColor = colors.timetablePlusColor;
+
   return (
     <View style={[styles.timetable, { backgroundColor: theme.cellBackgroundColor }]}>
       {/* ヘッダー行 */}
-      <View style={[styles.headerRow, { backgroundColor: theme.headerColor }]}>
-        <View style={styles.cornerCell} />
+      <View style={[styles.headerRow, { backgroundColor: headerBg }]}>
+        <View style={[styles.cornerCell, { backgroundColor: headerBg, borderColor: gridLine }]} />
         {displayDays.map((day, dayIndex) => (
           <View
             key={day}
             style={[
               styles.headerCell,
               {
-                borderColor: BORDER_COLOR,
+                backgroundColor: headerBg,
+                borderColor: gridLine,
                 borderRightWidth: dayIndex === displayDays.length - 1 ? 0 : 1,
               },
             ]}
@@ -54,7 +67,8 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
             style={[
               styles.periodCell,
               {
-                borderColor: BORDER_COLOR,
+                backgroundColor: indexBg,
+                borderColor: gridLine,
                 borderBottomWidth: periodIndex === periods.length - 1 ? 0 : 1,
               },
             ]}
@@ -71,8 +85,9 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                 style={[
                   styles.cell,
                   {
-                    backgroundColor: subject ? subject.color : theme.cellBackgroundColor,
-                    borderColor: BORDER_COLOR,
+                    // ★「＋セル」は addBg にする（曜日セルより濃くしない）
+                    backgroundColor: subject ? subject.color : addBg,
+                    borderColor: gridLine,
                     borderRightWidth: dayIndex === displayDays.length - 1 ? 0 : 1,
                     borderBottomWidth: periodIndex === periods.length - 1 ? 0 : 1,
                   },
@@ -89,7 +104,7 @@ export const TimetableGrid: React.FC<TimetableGridProps> = ({
                     </Text>
                   </View>
                 ) : (
-                  <Text style={[styles.addSubjectText, { color: theme.textColor }]}>+</Text>
+                  <Text style={[styles.addSubjectText, { color: plusColor }]}>+</Text>
                 )}
               </TouchableOpacity>
             );

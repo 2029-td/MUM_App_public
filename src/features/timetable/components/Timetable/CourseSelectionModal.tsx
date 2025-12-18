@@ -1,14 +1,10 @@
+// src/features/timetable/components/Timetable/CourseSelectionModal.tsx
+
 import React, { useState, useMemo, useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Modal, ScrollView, StyleSheet, TextInput } from 'react-native';
 import type { CourseData, Theme } from '../../types';
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { compositeOver } from '~/styles/color';
 
 interface CourseSelectionModalProps {
   visible: boolean;
@@ -28,16 +24,15 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
   onClose,
   onSelect,
 }) => {
+  const { theme, themeId } = useAppTheme();
+  const isDark = themeId === 'dark';
+
   const [keyword, setKeyword] = useState('');
 
-  // モーダルを閉じたら検索キーワードはリセット
   useEffect(() => {
-    if (!visible) {
-      setKeyword('');
-    }
+    if (!visible) setKeyword('');
   }, [visible]);
 
-  // キーワードで科目を絞り込み
   const filteredCourses = useMemo(() => {
     const q = keyword.trim().toLowerCase();
     if (!q) return courses;
@@ -45,41 +40,65 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
     return courses.filter(course => {
       const name = (course.科目名 ?? '').toLowerCase();
       const teacher = (course.教員 ?? '').toLowerCase();
-      return (
-        name.includes(q) ||
-        teacher.includes(q)
-      );
+      return name.includes(q) || teacher.includes(q);
     });
   }, [courses, keyword]);
 
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
+  /* ===== 色設計（AttendanceModal / ClassRegistrationModalの系統に寄せる） ===== */
 
+  // モーダルカード本体
+  const modalBg = isDark
+    ? compositeOver('rgba(255,255,255,0.10)', theme.backgroundColor)
+    : '#FFFFFF';
+
+  // 一段内側の面（検索欄・リストの見た目を整える）
+  const surfaceBg = isDark
+    ? compositeOver('rgba(0,0,0,0.22)', modalBg)
+    : compositeOver('rgba(0,0,0,0.05)', modalBg);
+
+  // 枠線
+  const borderColor = isDark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.18)';
+  const dividerColor = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+
+  // 文字
+  const titleColor = theme.textColor;
+  const subTextColor = isDark ? 'rgba(255,255,255,0.72)' : 'rgba(0,0,0,0.55)';
+  const placeholderColor = isDark ? 'rgba(255,255,255,0.40)' : '#999';
+
+  // 入力欄
+  const inputBg = isDark
+    ? compositeOver('rgba(255,255,255,0.06)', modalBg)
+    : '#FFFFFF';
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <View style={styles.modalContainer}>
+        <View style={[styles.modalContent, { backgroundColor: modalBg, borderColor }]}>
           {/* 右上の×ボタン */}
           <TouchableOpacity
             style={styles.topCloseButton}
             onPress={onClose}
             accessibilityLabel="閉じる"
           >
-            <Text style={styles.topCloseText}>×</Text>
+            <Text style={[styles.topCloseText, { color: titleColor }]}>×</Text>
           </TouchableOpacity>
 
-          <Text style={styles.modalTitle}>
+          <Text style={[styles.modalTitle, { color: titleColor }]}>
             {selectedDay}曜{selectedPeriod}限
           </Text>
 
           {/* 🔍 検索ボックス */}
           <TextInput
-            style={styles.searchInput}
+            style={[
+              styles.searchInput,
+              {
+                backgroundColor: inputBg,
+                borderColor,
+                color: titleColor,
+              },
+            ]}
             placeholder="科目名・教員名で絞り込み"
-            placeholderTextColor="#999"
+            placeholderTextColor={placeholderColor}
             value={keyword}
             onChangeText={setKeyword}
           />
@@ -88,24 +107,30 @@ export const CourseSelectionModal: React.FC<CourseSelectionModalProps> = ({
             {filteredCourses.map((course, index) => (
               <TouchableOpacity
                 key={index}
-                style={styles.courseItem}
+                style={[
+                  styles.courseItem,
+                  {
+                    backgroundColor: surfaceBg,
+                    borderBottomColor: dividerColor,
+                  },
+                ]}
                 onPress={() => onSelect(course)}
               >
-                <Text style={styles.courseName}>{course.科目名}</Text>
-                <Text style={styles.courseInfo}>
+                <Text style={[styles.courseName, { color: titleColor }]}>{course.科目名}</Text>
+                <Text style={[styles.courseInfo, { color: subTextColor }]}>
                   教員：{course.教員}
                 </Text>
               </TouchableOpacity>
             ))}
+
             {filteredCourses.length === 0 && (
               <View style={{ padding: 10 }}>
-                <Text style={{ textAlign: 'center', color: '#666' }}>
+                <Text style={{ textAlign: 'center', color: subTextColor }}>
                   該当する科目がありません
                 </Text>
               </View>
             )}
           </ScrollView>
-
         </View>
       </View>
     </Modal>
@@ -117,7 +142,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
   },
   modalContent: {
     backgroundColor: 'white',
@@ -126,6 +151,7 @@ const styles = StyleSheet.create({
     width: '90%',
     maxHeight: '80%',
     position: 'relative',
+    borderWidth: 1, // ★追加：カード外枠
   },
 
   modalTitle: {
@@ -174,6 +200,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
     backgroundColor: '#ffffff',
+    borderRadius: 10,
+    marginBottom: 10,
   },
   courseName: {
     fontSize: 16,

@@ -1,16 +1,11 @@
 // src/features/timetable/components/Exam/ExamModal.tsx
 
 import React, { useEffect } from 'react';
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  Modal,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, Text, TouchableOpacity, Modal, StyleSheet, Alert } from 'react-native';
 import type { Exam, Subject } from '../../types';
 import { ExamForm } from './ExamForm';
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { compositeOver } from '~/styles/color';
 
 interface ExamModalProps {
   visible: boolean;
@@ -37,6 +32,9 @@ export const ExamModal: React.FC<ExamModalProps> = ({
   onDateChange,
   onDatePickerVisibilityChange,
 }) => {
+  const { theme, themeId } = useAppTheme();
+  const isDark = themeId === 'dark';
+
   const [localExam, setLocalExam] = React.useState<Partial<Exam>>({
     subjectId: '',
     date: '',
@@ -45,30 +43,27 @@ export const ExamModal: React.FC<ExamModalProps> = ({
   });
 
   useEffect(() => {
-  if (!visible) return;
+    if (!visible) return;
 
-  if (exam) {
-    // 編集時：既存データをローカルにセット
-    setLocalExam(exam);
+    if (exam) {
+      setLocalExam(exam);
 
-    // 🔽 編集時：exam.date を親の examDate にも反映
-    const d = new Date(exam.date);
-    if (!isNaN(d.getTime())) {
-      onDateChange(d);
+      const d = new Date(exam.date);
+      if (!isNaN(d.getTime())) {
+        onDateChange(d);
+      }
+    } else {
+      const now = new Date();
+      onDateChange(now);
+
+      setLocalExam({
+        subjectId: '',
+        date: now.toISOString(),
+        location: '',
+        note: '',
+      });
     }
-  } else {
-    // 新規時：今日で初期化
-    const now = new Date();
-    onDateChange(now);
-
-    setLocalExam({
-      subjectId: '',
-      date: now.toISOString(),
-      location: '',
-      note: '',
-    });
-  }
-}, [exam, visible]);
+  }, [exam, visible]);
 
   const handleSave = async () => {
     if (!localExam.subjectId) {
@@ -76,7 +71,6 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       return;
     }
 
-    // localExam.date が空なら examDate（親の state）を使う保険
     const dateString = localExam.date || examDate.toISOString();
     const examDateObj = new Date(dateString);
 
@@ -85,7 +79,6 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       return;
     }
 
-    // 🔽 新規登録のときだけ「今日以降」をチェック（編集時は過去日でもそのまま保存を許可する）
     if (!exam) {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -116,7 +109,7 @@ export const ExamModal: React.FC<ExamModalProps> = ({
   const handleDelete = async () => {
     if (!exam?.id) return;
 
-    Alert.alert('確認', 'この試験を削除してもよろしいですか？',[
+    Alert.alert('確認', 'この試験を削除してもよろしいですか？', [
       { text: 'キャンセル', style: 'cancel' },
       {
         text: '削除',
@@ -133,16 +126,21 @@ export const ExamModal: React.FC<ExamModalProps> = ({
     ]);
   };
 
-  /** 右上 × の動作 */
   const handleCloseButtonPress = async () => {
     if (exam) {
-      // 編集の場合 → 更新と同じ処理
       await handleSave();
     } else {
-      // 新規の場合 → 閉じるのみ
       onClose();
     }
   };
+
+  /* ===== ダーク/ライト配色（他モーダル寄せ） ===== */
+  const modalBg = isDark
+    ? compositeOver('rgba(255,255,255,0.10)', theme.backgroundColor)
+    : '#FFFFFF';
+
+  const headerFooterLine = isDark ? 'rgba(255,255,255,0.12)' : '#eeeeee';
+  const overlayBg = isDark ? 'rgba(0,0,0,0.55)' : 'rgba(0,0,0,0.5)';
 
   return (
     <Modal
@@ -151,12 +149,11 @@ export const ExamModal: React.FC<ExamModalProps> = ({
       animationType="slide"
       onRequestClose={handleCloseButtonPress}
     >
-      <View style={styles.modalContainer}>
-        <View style={styles.modalContent}>
-          
+      <View style={[styles.modalContainer, { backgroundColor: overlayBg }]}>
+        <View style={[styles.modalContent, { backgroundColor: modalBg }]}>
           {/* ヘッダー */}
-          <View style={styles.header}>
-            <Text style={styles.modalTitle}>
+          <View style={[styles.header, { borderBottomColor: headerFooterLine }]}>
+            <Text style={[styles.modalTitle, { color: theme.textColor }]}>
               {exam ? '試験日程の編集' : '新規試験日程の登録'}
             </Text>
 
@@ -165,7 +162,7 @@ export const ExamModal: React.FC<ExamModalProps> = ({
               style={styles.closeButtonTop}
               onPress={handleCloseButtonPress}
             >
-              <Text style={styles.closeText}>×</Text>
+              <Text style={[styles.closeText, { color: theme.textColor }]}>×</Text>
             </TouchableOpacity>
           </View>
 
@@ -184,29 +181,19 @@ export const ExamModal: React.FC<ExamModalProps> = ({
           </View>
 
           {/* フッター */}
-          <View style={styles.footer}>
+          <View style={[styles.footer, { borderTopColor: headerFooterLine }]}>
             <View style={styles.buttonContainer}>
-
-              {/* 新規登録の時だけ登録ボタンを表示 */}
               {!exam && (
-                <TouchableOpacity
-                  style={styles.saveButton}
-                  onPress={handleSave}
-                >
+                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
                   <Text style={styles.buttonText}>登録</Text>
                 </TouchableOpacity>
               )}
 
-              {/* 編集時のみ削除ボタン */}
               {exam && (
-                <TouchableOpacity
-                  style={styles.deleteButton}
-                  onPress={handleDelete}
-                >
+                <TouchableOpacity style={styles.deleteButton} onPress={handleDelete}>
                   <Text style={styles.buttonText}>削除</Text>
                 </TouchableOpacity>
               )}
-
             </View>
           </View>
         </View>
@@ -220,10 +207,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: 'white',
     borderRadius: 10,
     width: '90%',
     maxHeight: '90%',
@@ -232,14 +217,12 @@ const styles = StyleSheet.create({
   header: {
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
     position: 'relative',
   },
   modalTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#333',
   },
 
   closeButtonTop: {
@@ -254,7 +237,6 @@ const styles = StyleSheet.create({
   },
   closeText: {
     fontSize: 24,
-    color: '#333',
     fontWeight: 'bold',
   },
 
@@ -266,7 +248,6 @@ const styles = StyleSheet.create({
   footer: {
     padding: 15,
     borderTopWidth: 1,
-    borderTopColor: '#eee',
   },
 
   buttonContainer: {

@@ -1,27 +1,79 @@
 // src/styles/index.ts
-//
-// - グローバルの色計算（surfaceSolid / modalSurface / inputBg 等）をまとめる
-// - useAppTheme の新API（themeId）に合わせる
 
 import { StyleSheet } from 'react-native';
 import { useAppTheme } from '~/hooks/useAppTheme';
 import { solidSurfaceFromTheme, compositeOver } from './color';
 
 export const useStyles = () => {
-  const { themeId, theme } = useAppTheme();
+  const { theme, themeId } = useAppTheme();
   const isDark = themeId === 'dark';
 
-  const surfaceSolid = solidSurfaceFromTheme(theme.cellBackgroundColor, theme.backgroundColor);
+  const surfaceSolid = solidSurfaceFromTheme(
+    theme.cellBackgroundColor,
+    theme.backgroundColor
+  );
 
-  // モーダル（外枠ではなく「カード色として使う面」）
+  // モーダル（カードとして使う面）
   const modalSurface = isDark
-    ? compositeOver('rgba(255,255,255,0.12)', surfaceSolid)  // ダークは+12%明るく
-    : compositeOver('rgba(255,255,255,0.55)', surfaceSolid); // ライトは+55%明るく
+    ? compositeOver('rgba(255,255,255,0.05)', surfaceSolid)
+    : compositeOver('rgba(255,255,255,0.55)', surfaceSolid);
 
-  // 入力欄の背景：ライトは白、ダークは「カードよりさらに明るい」色を合成
+  // 入力欄の背景
   const inputBg = isDark
-    ? compositeOver('rgba(255,255,255,0.10)', modalSurface)  // カードより一段明るい
+    ? compositeOver('rgba(255,255,255,0.10)', modalSurface)
     : '#FFFFFF';
+
+  // ===== Search（検索バー） =====
+  const searchBarBg = isDark
+    ? compositeOver('rgba(255,255,255,0.15)', theme.backgroundColor) // ダークは少し明るく
+    : compositeOver('rgba(0,0,0,0.01)', theme.backgroundColor);      // ライトは少しだけ暗く
+
+  const searchBarBorder = isDark
+    ? 'rgba(255,255,255,0.14)'
+    : 'rgba(0,0,0,0.10)';
+
+  const searchBarPlaceholder = isDark
+    ? 'rgba(236,239,244,0.55)'
+    : 'rgba(44,62,80,0.45)';
+
+  const searchBarText = isDark ? '#ECEFF4' : '#2c3e50';
+
+  const searchResultBg = isDark
+    ? compositeOver('rgba(255,255,255,0.08)', theme.backgroundColor)
+    : '#FFFFFF';
+
+  const searchResultDivider = isDark
+    ? 'rgba(255,255,255,0.10)'
+    : 'rgba(0,0,0,0.08)';
+
+  /**
+   * =========================
+   * Timetable（表）のベース配色
+   * - 曜日セル: header
+   * - 数字セル: index
+   * - 登録セル: add
+   */
+  const timetableHeaderBg = isDark
+    ? compositeOver('rgba(255,255,255,0.06)', theme.backgroundColor)
+    : compositeOver('rgba(0,0,0,0.06)', theme.backgroundColor); 
+
+  const timetableIndexBg = isDark
+    ? compositeOver('rgba(255,255,255,0.06)', theme.backgroundColor)
+    : compositeOver('rgba(0,0,0,0.06)', theme.backgroundColor); 
+
+  const timetableAddBg = isDark
+    ? compositeOver('rgba(255,255,255,0.12)', theme.backgroundColor)
+    : compositeOver('rgba(0,0,0,0.02)', theme.backgroundColor);
+
+  // 罫線
+  const timetableGridLine = isDark
+    ? 'rgba(255,255,255,0.5)'
+    : 'rgba(0,0,0,0.25)';
+
+  // ＋ボタン
+  const timetablePlusColor = isDark
+    ? 'rgba(255,255,255,0.6)'
+    : 'rgba(0,0,0,0.6)';
 
   const colors = {
     background: theme.backgroundColor,
@@ -32,15 +84,26 @@ export const useStyles = () => {
     modalSurface,
     inputBg,
     inputText: isDark ? '#ECEFF4' : '#2c3e50',
-
-    // ボタンの塗り（基本はカード面）
     buttonSolidBg: modalSurface,
     buttonSolidText: theme.textColor,
-
-    // セマンティックカラー（必要ならAPP_THEMESへ移してもOK）
     success: '#4CAF50',
     warn: '#FFC107',
     danger: '#E57373',
+
+    // 検索バー
+    searchBarBg,
+    searchBarBorder,
+    searchBarPlaceholder,
+    searchBarText,
+    searchResultBg,
+    searchResultDivider,
+
+    // 時間割表
+    timetableHeaderBg,
+    timetableIndexBg,
+    timetableAddBg,
+    timetableGridLine,
+    timetablePlusColor,
   };
 
   const styles = StyleSheet.create({

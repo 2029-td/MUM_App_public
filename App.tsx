@@ -1,8 +1,5 @@
 // App.tsx
 //
-// - useAppTheme の新API（themeId）に追従
-// - Navigation / Paper のテーマを統一
-// - TabBar の配色も themeId ベースで切替
 
 import 'react-native-gesture-handler';
 import React, { useMemo } from 'react';
@@ -17,7 +14,7 @@ import MapScreen from './src/features/map/screen';
 import TodoScreen from './src/features/todo/screen';
 import OthersScreen from './src/features/others/screen';
 
-// ★ グローバルテーマ
+// グローバルテーマ
 import { ThemeProvider, useAppTheme } from './src/hooks/useAppTheme';
 
 const Tab = createBottomTabNavigator();
@@ -44,11 +41,12 @@ const AppShell = () => {
     };
   }, [themeId, theme]);
 
-  // ▼ TabBar の見た目（必要最低限の分岐）
-  const navBg = themeId === 'dark' ? '#1F2B38' : theme.backgroundColor;
-  const isDarkishNav = themeId === 'dark';
+   // ▼ TabBar の見た目（ダークを“ほぼ黒”へ）
+   const isDarkishNav = themeId === 'dark';
 
-  const tabActive = isDarkishNav ? '#FFFFFF' : theme.textColor;
+   // 他アプリっぽいダーク（青みを減らす）
+   const navBg = isDarkishNav ? '#0B0F14' : theme.backgroundColor;
+   const tabActive = isDarkishNav ? '#FFFFFF' : theme.textColor;
 
   // 非アクティブは薄くしてコントラストを強くする
   const tabInactive = isDarkishNav

@@ -24,12 +24,13 @@ export const APP_THEMES: Record<ThemeId, Theme> = {
   dark: {
     id: 'dark',
     name: 'ダーク',
-    backgroundColor: '#2c3e50',
-    textColor: '#FFFFFF',
-    headerColor: 'rgba(0, 0, 0, 0.3)',
-    cellBackgroundColor: 'rgba(255, 255, 255, 0.05)',
-    headerButtonColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: '#0B0F14',          // ほぼ黒（青み少なめ）
+    textColor: '#E8EDF3',                // まぶしすぎない白
+    headerColor: 'rgba(255,255,255,0.10)', // 枠線・区切り
+    cellBackgroundColor: 'rgba(255,255,255,0.06)', // カード/セル面
+    headerButtonColor: 'rgba(255,255,255,0.08)',
   },
+  
 };
 
 /**
