@@ -1,19 +1,22 @@
 // src/features/map/screen.tsx
 
-import React, { useState, useEffect } from 'react';
-import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView,  TextInput } from 'react-native';
+import React, { useState, useEffect, useMemo } from 'react';
+import { View, Image, Text, StyleSheet, Dimensions, TouchableOpacity, ScrollView, TextInput } from 'react-native';
 import { GestureHandlerRootView, Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from 'react-native-vector-icons/Ionicons';
+import { useHeaderHeight } from '@react-navigation/elements';
+import type { ViewStyle } from 'react-native';
 
 // 各種データ読み込み
 import { MapItem, mapItems } from './constants/mapData';
 import { loadClassesData, ClassInfo } from './constants/classesData';
 import { labData } from './constants/labData';
 import { vendingMachineLocations } from './constants/vendingMachineLocations';
+import { useAppTheme } from '~/hooks/useAppTheme';
+import { compositeOver } from '~/styles/color';
 import MapSvg from './assets/images/map.svg';
-import type { ViewStyle } from 'react-native';
 
 // 元画像のピクセルサイズ（SVG の座標系と一致させる）
 const IMAGE_WIDTH = 1080;
@@ -29,23 +32,59 @@ const EPS = 1e-4; // 浮動小数点の誤差吸収
 
 const App: React.FC = () => {
   const insets = useSafeAreaInsets();
+  const headerHeight = useHeaderHeight();
+
+  // ✅ テーマ取得
+  const { theme, themeId } = useAppTheme();
+  const isDark = themeId === 'dark';
+
+  // ✅ マップ画面で使う “カード面/入力面” の色
+  const screenBg = theme.backgroundColor;
+
+  const cardBg = useMemo(() => {
+    return isDark
+      ? compositeOver('rgba(255,255,255,0.06)', theme.backgroundColor)
+      : '#FFFFFF';
+  }, [isDark, theme.backgroundColor]);
+
+  const inputBg = useMemo(() => {
+    return isDark
+      ? compositeOver('rgba(255,255,255,0.15)', theme.backgroundColor)
+      : '#FFFFFF';
+  }, [isDark, theme.backgroundColor]);
+
+  const inputBorder = isDark ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.10)';
+  const divider = isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.08)';
+
+  const primaryText = theme.textColor;
+  const secondaryText = isDark ? 'rgba(255,255,255,0.75)' : '#333';
+  const iconColor = isDark ? 'rgba(255,255,255,0.85)' : '#000';
+  
+  const topOffset = Math.max(headerHeight, insets.top) + 20;
 
   // 既存ステート（検索/選択など）
   const [selectedItem, setSelectedItem] = useState<MapItem | null>(null);
-  const [selectedClassItem, setSelectedClassItem] = useState<MapItem | null>(null); // 授業検索
-  const [selectedLabItem, setSelectedLabItem] = useState<MapItem | null>(null); // 研究室検索
-  const [allClasses, setAllClasses] = useState<ClassInfo[]>([]); // 授業データを外部 CSV から読み込む
-  const [classInfo, setClassInfo] = useState<{ name: string; room: string; teacher: string; campus: string; } | null>(null); // 授業検索で選択された詳細
-  const [labInfo, setLabInfo] = useState<{ name: string; room: string } | null>(null); // 研究室情報
-  const [searchQuery, setSearchQuery] = useState(''); // 検索ボックスの入力内容を初期化
-  const [searchResults, setSearchResults] = useState<{ type: 'building' | 'class' | 'lab'; data: string; meta?: any }[]>([]); //　検索結果一覧
-  const [showVendingMachines, setShowVendingMachines] = useState(false); // 自動販売機
+  const [selectedClassItem, setSelectedClassItem] = useState<MapItem | null>(null);
+  const [selectedLabItem, setSelectedLabItem] = useState<MapItem | null>(null);
+  const [allClasses, setAllClasses] = useState<ClassInfo[]>([]);
+  const [classInfo, setClassInfo] = useState<{
+    name: string;
+    room: string;
+    teacher: string;
+    campus: string;
+  } | null>(null);
+  const [labInfo, setLabInfo] = useState<{ name: string; room: string } | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<
+    { type: 'building' | 'class' | 'lab'; data: string; meta?: any }[]
+  >([]);
+  const [showVendingMachines, setShowVendingMachines] = useState(false);
 
   // 画像を画面にフィットさせる初期スケール
   const scaleByWidth = SCREEN_WIDTH / IMAGE_WIDTH;
   const scaleByHeight = SCREEN_HEIGHT / IMAGE_HEIGHT;
   const fitScale = Math.min(scaleByWidth, scaleByHeight);
-  const imageWidth  = IMAGE_WIDTH  * fitScale;
+  const imageWidth = IMAGE_WIDTH * fitScale;
   const imageHeight = IMAGE_HEIGHT * fitScale;
 
   // パン・ズーム
@@ -53,20 +92,22 @@ const App: React.FC = () => {
   const translateY = useSharedValue(0);
   const scale = useSharedValue(1);
 
-  // ジェスチャー操作時の基準値（ドラッグ開始位置 / ピンチ開始倍率）
+  // ジェスチャー操作時の基準値
   const start = {
     x: useSharedValue(0),
     y: useSharedValue(0),
     scale: useSharedValue(1),
   };
 
-  // JS 側にも現在倍率を同期（UIのボタン無効化などで使用）
+  // JS 側にも現在倍率を同期
   const [jsScale, setJsScale] = useState(1);
   const jsScaleRef = React.useRef(1);
-  useEffect(() => { jsScaleRef.current = jsScale; }, [jsScale]);
+  useEffect(() => {
+    jsScaleRef.current = jsScale;
+  }, [jsScale]);
   const syncScaleToJS = (v: number) => setJsScale(v);
 
-  // 表示コンテナの実サイズ（onLayoutで取得しUIスレッドに渡す）
+  // 表示コンテナの実サイズ
   const containerW = useSharedValue(SCREEN_WIDTH);
   const containerH = useSharedValue(SCREEN_HEIGHT);
 
@@ -90,58 +131,58 @@ const App: React.FC = () => {
     }
   }, [jsScale, translateX, translateY]);
 
-  // UI スレッドで使うクランプ関数（ジェスチャー内で使用）
+  // UI スレッドで使うクランプ関数
   const clamp = (v: number, min: number, max: number) => {
     'worklet';
     return Math.min(Math.max(v, min), max);
   };
 
-  // ジェスチャー定義：パン（拡大時のみ有効）
+  // ジェスチャー定義：パン
   const pan = Gesture.Pan()
-  .enabled(jsScale > MIN_SCALE + EPS) // 等倍時はパン無効
-  .onBegin(() => {
-    start.x.value = translateX.value;
-    start.y.value = translateY.value;
-  })
-  .onChange((e) => {
-    if (scale.value <= MIN_SCALE + EPS) return;
-    // 仮の次位置
-    let nextX = start.x.value + e.translationX;
-    let nextY = start.y.value + e.translationY;
-    // 現在スケールにおける最大可動量（余白が出ない範囲）
-    const maxX = Math.max(0, (imageWidth  * scale.value - containerW.value) / 2);
-    const maxY = Math.max(0, (imageHeight * scale.value - containerH.value) / 2);
-    // クランプ
-    translateX.value = clamp(nextX, -maxX,  maxX);
-    translateY.value = clamp(nextY, -maxY,  maxY);
-  });
+    .enabled(jsScale > MIN_SCALE + EPS)
+    .onBegin(() => {
+      start.x.value = translateX.value;
+      start.y.value = translateY.value;
+    })
+    .onChange(e => {
+      if (scale.value <= MIN_SCALE + EPS) return;
+      let nextX = start.x.value + e.translationX;
+      let nextY = start.y.value + e.translationY;
 
-  // ジェスチャー定義：ピンチ（倍率更新＆位置クランプ）
+      const maxX = Math.max(0, (imageWidth * scale.value - containerW.value) / 2);
+      const maxY = Math.max(0, (imageHeight * scale.value - containerH.value) / 2);
+
+      translateX.value = clamp(nextX, -maxX, maxX);
+      translateY.value = clamp(nextY, -maxY, maxY);
+    });
+
+  // ジェスチャー定義：ピンチ
   const pinch = Gesture.Pinch()
     .onBegin(() => {
       start.scale.value = scale.value;
     })
-    .onChange((e) => {
+    .onChange(e => {
       const raw = start.scale.value * e.scale;
       const s = Math.min(Math.max(raw, MIN_SCALE), MAX_SCALE);
       scale.value = s;
-      runOnJS(syncScaleToJS)(s); // ボタン活性/非活性のためJSにも同期
+      runOnJS(syncScaleToJS)(s);
 
-      // 倍率変化に合わせて、現在位置も再クランプ
-      const maxX = Math.max(0, (imageWidth  * s - containerW.value) / 2);
+      const maxX = Math.max(0, (imageWidth * s - containerW.value) / 2);
       const maxY = Math.max(0, (imageHeight * s - containerH.value) / 2);
-      translateX.value = s <= MIN_SCALE + EPS ? withTiming(0, { duration: 120 }) : clamp(translateX.value, -maxX, maxX);
-      translateY.value = s <= MIN_SCALE + EPS ? withTiming(0, { duration: 120 }) : clamp(translateY.value, -maxY, maxY);
+
+      translateX.value =
+        s <= MIN_SCALE + EPS ? withTiming(0, { duration: 120 }) : clamp(translateX.value, -maxX, maxX);
+      translateY.value =
+        s <= MIN_SCALE + EPS ? withTiming(0, { duration: 120 }) : clamp(translateY.value, -maxY, maxY);
     });
 
-  // 同時認識（パン＋ピンチ）
   const composed = Gesture.Simultaneous(pan, pinch);
 
-  // スケールが変わったときは常にクランプ（ボタン操作にも効かせる）
+  // スケールが変わったときは常にクランプ
   useAnimatedReaction(
     () => scale.value,
-    (s) => {
-      const maxX = Math.max(0, (imageWidth  * s - containerW.value) / 2);
+    s => {
+      const maxX = Math.max(0, (imageWidth * s - containerW.value) / 2);
       const maxY = Math.max(0, (imageHeight * s - containerH.value) / 2);
       if (s <= MIN_SCALE + EPS) {
         translateX.value = 0;
@@ -153,102 +194,86 @@ const App: React.FC = () => {
     }
   );
 
-  // 地図レイヤーに適用する transform スタイル
+  // 地図レイヤーに適用する transform
   const mapAnimatedStyle = useAnimatedStyle<ViewStyle>(() => {
-    const t = [
-      { translateX: translateX.value },
-      { translateY: translateY.value },
-      { scale: scale.value },
-    ] as const;
+    const t = [{ translateX: translateX.value }, { translateY: translateY.value }, { scale: scale.value }] as const;
     return { transform: t as ViewStyle['transform'] };
   });
 
-  // 地図上の建物/自販機をクリックした時の処理
+  // 建物タップ
   const handleItemPress = (item: MapItem) => {
-    reset(); // リセット関数呼び出し
+    reset();
     setSelectedItem(item);
   };
 
-  // ポップアップを閉じる処理
   const handleClosePopup = () => {
-    reset(); // リセット関数呼び出し
+    reset();
   };
 
-  // 検索機能の実装
-  const handleSearch = (query: string) => { // handleSearchは検索ボックスの入力内容を処理
-    setSearchQuery(query); // 入力された値queryをsearchQueryに設定
+  // 検索
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
 
-    // 建物の検索
-    const buildingResults: {
-      type: "building"; 
-      data: string; 
-      meta: MapItem 
-    }[] = mapItems
+    const buildingResults: { type: 'building'; data: string; meta: MapItem }[] = mapItems
       .filter(item => item.info[0].includes(query))
       .map(item => ({ type: 'building' as const, data: item.info[0], meta: item }));
 
-    // 授業の検索
-    const classResults: { 
-      type: "class"; 
-      data: string; 
-      meta: { name: string; room: string; teacher: string; campus: string; building?: MapItem } 
+    const classResults: {
+      type: 'class';
+      data: string;
+      meta: { name: string; room: string; teacher: string; campus: string; building?: MapItem };
     }[] = allClasses
       .filter(cls => cls.name.includes(query) || cls.teacher.includes(query))
       .map(cls => {
-        // 船橋校舎のみマップ上の建物と紐付ける
-        const building = 
-          cls.campus === '船橋' && cls.buildingId
-            ? mapItems.find(b => b.id === cls.buildingId) // 建物IDで建物を取得
-            : undefined;
+        const building = cls.campus === '船橋' && cls.buildingId ? mapItems.find(b => b.id === cls.buildingId) : undefined;
 
         return {
           type: 'class' as const,
           data: `${cls.name}（${cls.teacher}）`,
-          meta: { name: cls.name, room: cls.room, teacher: cls.teacher, campus: cls.campus, ...(building ? { building } : {}),},
+          meta: {
+            name: cls.name,
+            room: cls.room,
+            teacher: cls.teacher,
+            campus: cls.campus,
+            ...(building ? { building } : {}),
+          },
         };
       });
 
-    // 研究室の検索
-    const labResults: { type: "lab"; data: string; meta: { name: string; room: string; building: MapItem } }[] =labData.filter(lab => lab.name.includes(query)).map(lab => {
-      const building = mapItems.find(b => b.id === lab.buildingId)!; // 建物IDで建物を取得
-      return { 
-        type: 'lab' as const, 
-        data: lab.name, 
-        meta: { name: lab.name, room: lab.room, building } 
-      };
-    });
+    const labResults: { type: 'lab'; data: string; meta: { name: string; room: string; building: MapItem } }[] = labData
+      .filter(lab => lab.name.includes(query))
+      .map(lab => {
+        const building = mapItems.find(b => b.id === lab.buildingId)!;
+        return { type: 'lab' as const, data: lab.name, meta: { name: lab.name, room: lab.room, building } };
+      });
 
-    // 検索結果をセット
     setSearchResults([...buildingResults, ...classResults, ...labResults]);
   };
 
-  // 検索結果をクリックした際の処理
   const handleSearchResultPress = (result: { type: 'building' | 'class' | 'lab'; data: string; meta?: any }) => {
     if (result.type === 'building' && result.meta) {
-      reset(); // リセット関数呼び出し
+      reset();
       setSelectedItem(result.meta);
     } else if (result.type === 'class' && result.meta) {
-      reset(); // リセット関数呼び出し
-      // 船橋校舎の授業のみマップの建物を選択（駿河台は building が undefined）
+      reset();
       if (result.meta.building) {
         setSelectedClassItem(result.meta.building);
       }
-      setClassInfo({ 
-        name: result.meta.name, 
-        room: result.meta.room, 
+      setClassInfo({
+        name: result.meta.name,
+        room: result.meta.room,
         teacher: result.meta.teacher,
         campus: result.meta.campus,
       });
     } else if (result.type === 'lab' && result.meta) {
-      reset(); // リセット関数呼び出し
+      reset();
       setSelectedLabItem(result.meta.building);
       setLabInfo({ name: result.meta.name, room: result.meta.room });
     }
-    setSearchQuery(''); // 検索クエリを初期化
-    setSearchResults([]); // 検索結果を初期化
+    setSearchQuery('');
+    setSearchResults([]);
   };
 
-  // 自動販売機フィルターをクリックしたときの処理
   const toggleVendingMachines = () => setShowVendingMachines(v => !v);
 
   // 拡大縮小ボタン
@@ -256,35 +281,32 @@ const App: React.FC = () => {
   const canZoomIn = jsScale < MAX_SCALE - EPS;
 
   const clampTranslate = (s: number, tx: number, ty: number) => {
-    const maxX = Math.max(0, (imageWidth  * s - containerW.value) / 2);
+    const maxX = Math.max(0, (imageWidth * s - containerW.value) / 2);
     const maxY = Math.max(0, (imageHeight * s - containerH.value) / 2);
     return {
       tx: clamp(tx, -maxX, maxX),
       ty: clamp(ty, -maxY, maxY),
     };
   };
-  
-  // 画面中央固定でズーム（ボタン用）
+
   const zoomAroundCenterTo = (s1: number) => {
     const s0 = scale.value;
     const Fx = containerW.value / 2;
     const Fy = containerH.value / 2;
-  
-    const r  = s1 / s0;
+
+    const r = s1 / s0;
     const tx = Fx - r * (Fx - translateX.value);
     const ty = Fy - r * (Fy - translateY.value);
-  
+
     const { tx: clampedX, ty: clampedY } = clampTranslate(s1, tx, ty);
     translateX.value = withTiming(clampedX, { duration: 120 });
     translateY.value = withTiming(clampedY, { duration: 120 });
-    scale.value      = withTiming(s1, { duration: 120 });
+    scale.value = withTiming(s1, { duration: 120 });
     setJsScale(s1);
   };
 
-  // ズーム倍率
   const ZOOM_STEP = 0.15;
 
-  // 単発ズーム（＋）
   const increaseScale = () => {
     setJsScale(prev => {
       const next = Math.min(prev + ZOOM_STEP, MAX_SCALE);
@@ -294,14 +316,12 @@ const App: React.FC = () => {
     });
   };
 
-  // 単発ズーム（−）
   const decreaseScale = () => {
     setJsScale(prev => {
       const next = Math.max(prev - ZOOM_STEP, MIN_SCALE);
       if (next === prev) return prev;
 
       if (next <= MIN_SCALE + EPS) {
-        // 等倍に戻すときは中央→原点へスムーズに
         scale.value = withTiming(1, { duration: 120 });
         translateX.value = withTiming(0, { duration: 120 });
         translateY.value = withTiming(0, { duration: 120 });
@@ -312,69 +332,58 @@ const App: React.FC = () => {
     });
   };
 
-  // ズームの長押し連打用タイマー(ID)を保持する参照
-  //   - setInterval が返すIDを保持して、複数起動を防止＆後で確実に停止できるようにする
-  //   - null のときは「稼働していない」状態を表す
   const zoomTimerRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // 長押しによる連続ズーム制御
   const startContinuousZoom = (direction: 'in' | 'out') => {
-    if (zoomTimerRef.current) return; // 多重起動防止
+    if (zoomTimerRef.current) return;
     const tick = () => {
       if (direction === 'in') {
-        if (jsScaleRef.current >= MAX_SCALE - EPS) { stopContinuousZoom(); return; }
+        if (jsScaleRef.current >= MAX_SCALE - EPS) {
+          stopContinuousZoom();
+          return;
+        }
         increaseScale();
       } else {
-        if (jsScaleRef.current <= MIN_SCALE + EPS) { stopContinuousZoom(); return; }
+        if (jsScaleRef.current <= MIN_SCALE + EPS) {
+          stopContinuousZoom();
+          return;
+        }
         decreaseScale();
       }
     };
-    tick(); // ★ 初回を即時実行（ここがポイント）
+    tick();
     zoomTimerRef.current = setInterval(tick, 120);
   };
 
-  // 連続ズームを停止する関数
-  //   - 稼働中の setInterval を clearInterval で停止
-  //   - 参照を null に戻して次回の起動を許可（多重起動を防ぐためのリセット）
   const stopContinuousZoom = () => {
     if (zoomTimerRef.current) {
-      clearInterval(zoomTimerRef.current); // タイマー停止
-      zoomTimerRef.current = null; // 参照をクリア
+      clearInterval(zoomTimerRef.current);
+      zoomTimerRef.current = null;
     }
   };
 
-  // リセット関数
   const reset = () => {
-    setSelectedItem(null); // 建物の選択状態をリセット
-    setSelectedClassItem(null); // 授業検索結果の選択状態をリセット
-    setSelectedLabItem(null); // 研究室検索結果の選択状態をリセット
-    setClassInfo(null); // 授業情報をリセット
-    setLabInfo(null); // 研究室情報をリセット
+    setSelectedItem(null);
+    setSelectedClassItem(null);
+    setSelectedLabItem(null);
+    setClassInfo(null);
+    setLabInfo(null);
   };
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-        {/* パン/ピンチのジェスチャーはキャンバス全体に付与 */}
+    <GestureHandlerRootView style={[styles.container, { backgroundColor: screenBg }]}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: screenBg }]} edges={['top', 'left', 'right']}>
         <GestureDetector gesture={composed}>
           <View
-            style={styles.flexFill}
-            onLayout={(e) => {
+            style={[styles.flexFill, { backgroundColor: screenBg }]}
+            onLayout={e => {
               containerW.value = e.nativeEvent.layout.width;
               containerH.value = e.nativeEvent.layout.height;
             }}
           >
-            {/* 地図全体（SVG＋当たり判定＋自販機）を 1 レイヤーとして transform */}
-            <Animated.View
-              style={[
-                { width: imageWidth, height: imageHeight },
-                mapAnimatedStyle,
-              ]}
-            >
-              {/* 地図 SVG */}
+            <Animated.View style={[{ width: imageWidth, height: imageHeight }, mapAnimatedStyle]}>
               <MapSvg width={imageWidth} height={imageHeight} />
 
-              {/* 建物のヒットエリア（レイヤー transform に追従）*/}
               {mapItems.map(item => {
                 if (item.x == null || item.y == null || item.width == null || item.height == null) return null;
                 return (
@@ -388,57 +397,71 @@ const App: React.FC = () => {
                         width: Math.max((item.width / IMAGE_WIDTH) * imageWidth, 10),
                         height: Math.max((item.height / IMAGE_HEIGHT) * imageHeight, 2),
                       },
-                      (selectedItem?.id === item.id || selectedClassItem?.id === item.id || selectedLabItem?.id === item.id) && styles.RedBorder,
+                      (selectedItem?.id === item.id || selectedClassItem?.id === item.id || selectedLabItem?.id === item.id) &&
+                        styles.RedBorder,
                     ]}
                     onPress={() => handleItemPress(item)}
                   />
                 );
               })}
 
-              {/* 自動販売機アイコン（レイヤー transform に追従）*/}
-              {showVendingMachines && vendingMachineLocations.map(vm => (
-                <View
-                  key={vm.id}
-                  pointerEvents="none"
-                  style={[
-                    styles.vendingMachineIconWrapper,
-                    {
-                      left: (vm.x / IMAGE_WIDTH) * imageWidth,
-                      top: (vm.y / IMAGE_HEIGHT) * imageHeight,
-                    },
-                  ]}
-                >
-                  <Image
-                    source={require('./assets/icons/vending_machine_icon.png')}
-                    style={styles.vendingMachineIcon}
-                  />
-                </View>
-              ))}
+              {showVendingMachines &&
+                vendingMachineLocations.map(vm => (
+                  <View
+                    key={vm.id}
+                    pointerEvents="none"
+                    style={[
+                      styles.vendingMachineIconWrapper,
+                      {
+                        left: (vm.x / IMAGE_WIDTH) * imageWidth,
+                        top: (vm.y / IMAGE_HEIGHT) * imageHeight,
+                      },
+                    ]}
+                  >
+                    <Image
+                      source={require('./assets/icons/vending_machine_icon.png')}
+                      style={styles.vendingMachineIcon}
+                    />
+                  </View>
+                ))}
             </Animated.View>
           </View>
         </GestureDetector>
 
-        {/* 検索バー */}
-        <View style={[styles.searchBar, { top: insets.top + 8 }]}>
-          <TextInput // 検索ボックスを表示するためのコンポーネント
-            style={styles.searchDesign} // 検索ボックスのデザインをsearchDesignで指定
-            placeholder="検索" // 検索ボックスのヒントテキスト
-            value={searchQuery} // 検索ボックスに表示するテキストの内容
-            onChangeText={handleSearch} // ユーザーが入力を行うたびにhandleSearch関数を実行
+        {/* 検索バー（✅ ヘッダー分だけ下げる） */}
+        <View style={[styles.searchBar, { top: topOffset }]}>
+          <TextInput
+            style={[
+              styles.searchDesign,
+              {
+                backgroundColor: inputBg,
+                color: primaryText,
+                borderColor: inputBorder,
+              },
+            ]}
+            placeholder="検索"
+            placeholderTextColor={isDark ? 'rgba(236,239,244,0.55)' : 'rgba(44,62,80,0.45)'}
+            value={searchQuery}
+            onChangeText={handleSearch}
           />
-          {searchQuery.length > 0 && ( // 検索ボックスに入力がある時に以下のコードを実行
-            // 検索結果のカードを追加
-            <ScrollView style={styles.searchResultsContainer}>
-              {searchResults.map((result, index) => ( // searchResults配列に入っているデータをmap関数で表示
-                <TouchableOpacity // タップ可能なエリアを作成
+
+          {searchQuery.length > 0 && (
+            <ScrollView
+              style={[
+                styles.searchResultsContainer,
+                {
+                  backgroundColor: cardBg,
+                  borderColor: inputBorder,
+                },
+              ]}
+            >
+              {searchResults.map((result, index) => (
+                <TouchableOpacity
                   key={index}
-                  style={styles.searchResultBox} // 検索結果カードのデザインをsearchResultBoxで指定
-                  onPress={() => handleSearchResultPress(result)} // タップするとhandleSearchResultPressを実行
+                  style={[styles.searchResultBox, { borderBottomColor: divider }]}
+                  onPress={() => handleSearchResultPress(result)}
                 >
-                  {/*検索結果カードにresult.dataを表示する*/}
-                  <Text>
-                    {result.data}
-                  </Text>
+                  <Text style={{ color: secondaryText }}>{result.data}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -447,14 +470,12 @@ const App: React.FC = () => {
 
         {/* ポップアップ（建物タップ時） */}
         {selectedItem && (
-          <View style={styles.popup}>
-            {/* 閉じるボタン */}
+          <View style={[styles.popup, { backgroundColor: cardBg, borderColor: inputBorder }]}>
             <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-              <Icon name="close" size={20} color="#000" />
+              <Icon name="close" size={20} color={iconColor} />
             </TouchableOpacity>
 
-            {/* 情報エリア */}
-            <Text style={styles.popupText}>
+            <Text style={[styles.popupText, { color: primaryText }]}>
               {Array.isArray(selectedItem.info) ? selectedItem.info.join('\n') : selectedItem.info}
             </Text>
           </View>
@@ -462,29 +483,27 @@ const App: React.FC = () => {
 
         {/* ポップアップ（授業検索時） */}
         {classInfo && (
-          <View style={styles.popup}>
-            {/* 閉じるボタン */}
+          <View style={[styles.popup, { backgroundColor: cardBg, borderColor: inputBorder }]}>
             <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-              <Icon name="close" size={20} color="#000" />
+              <Icon name="close" size={20} color={iconColor} />
             </TouchableOpacity>
 
-            {/* 情報エリア */}
             <View style={styles.popupTextContainer}>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>科目：</Text>
-                <Text style={styles.infoValue}>{classInfo.name}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>科目：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{classInfo.name}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>教室：</Text>
-                <Text style={styles.infoValue}>{classInfo.room}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>教室：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{classInfo.room}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>校舎：</Text>
-                <Text style={styles.infoValue}>{classInfo.campus}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>校舎：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{classInfo.campus}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>教員：</Text>
-                <Text style={styles.infoValue}>{classInfo.teacher}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>教員：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{classInfo.teacher}</Text>
               </View>
             </View>
           </View>
@@ -492,59 +511,69 @@ const App: React.FC = () => {
 
         {/* ポップアップ（研究室検索時） */}
         {labInfo && selectedLabItem && (
-          <View style={styles.popup}>
-            {/* 閉じるボタン */}
+          <View style={[styles.popup, { backgroundColor: cardBg, borderColor: inputBorder }]}>
             <TouchableOpacity style={styles.closeButton} onPress={handleClosePopup}>
-              <Icon name="close" size={20} color="#000" />
+              <Icon name="close" size={20} color={iconColor} />
             </TouchableOpacity>
 
-            {/* 情報エリア */}
             <View style={styles.popupTextContainer}>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>研究室：</Text>
-                <Text style={styles.infoValue}>{labInfo.name}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>研究室：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{labInfo.name}</Text>
               </View>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>教室　：</Text>
-                <Text style={styles.infoValue}>{labInfo.room}</Text>
+                <Text style={[styles.infoLabel, { color: primaryText }]}>教室　：</Text>
+                <Text style={[styles.infoValue, { color: primaryText }]}>{labInfo.room}</Text>
               </View>
             </View>
           </View>
         )}
 
         {/* 自動販売機フィルターボタン */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.filterButton, { bottom: insets.bottom + 20 }]}
-          onPress={toggleVendingMachines} 
+          onPress={() => setShowVendingMachines(v => !v)}
           hitSlop={{ top: 5, bottom: 5, left: 5, right: 5 }}
         >
           <Image source={require('./assets/icons/vending_machine_filter.png')} style={styles.filterIcon} />
         </TouchableOpacity>
 
-        {/* 拡大・縮小ボタン */}
-        <View style={[styles.zoomButtonsContainer, { top: insets.top + 60 }]}>
-          {/* 拡大ボタン */}
+        {/* 拡大・縮小ボタン（✅ 検索バーと同じ基準で下げる） */}
+        <View style={[styles.zoomButtonsContainer, { top: topOffset + 60 }]}>
           <TouchableOpacity
             onLongPress={() => startContinuousZoom('in')}
-            delayLongPress={150} 
+            delayLongPress={150}
             onPressOut={stopContinuousZoom}
             onPress={increaseScale}
-            disabled={!canZoomIn} // ← マップ最大時は押せない
-            style={[styles.zoomButton, !canZoomIn && styles.zoomButtonDisabled]}
+            disabled={!canZoomIn}
+            style={[
+              styles.zoomButton,
+              {
+                backgroundColor: cardBg,
+                borderColor: inputBorder,
+              },
+              !canZoomIn && styles.zoomButtonDisabled,
+            ]}
           >
-            <Text style={styles.zoomLabel}>＋</Text>
+            <Text style={[styles.zoomLabel, { color: primaryText }]}>＋</Text>
           </TouchableOpacity>
 
-          {/* 縮小ボタン */}
           <TouchableOpacity
             onLongPress={() => startContinuousZoom('out')}
             delayLongPress={150}
             onPressOut={stopContinuousZoom}
             onPress={decreaseScale}
-            disabled={!canZoomOut} // ← マップ最小時（初期画面）は押せない
-            style={[styles.zoomButton, !canZoomOut && styles.zoomButtonDisabled]}
+            disabled={!canZoomOut}
+            style={[
+              styles.zoomButton,
+              {
+                backgroundColor: cardBg,
+                borderColor: inputBorder,
+              },
+              !canZoomOut && styles.zoomButtonDisabled,
+            ]}
           >
-            <Text style={styles.zoomLabel}>−</Text>
+            <Text style={[styles.zoomLabel, { color: primaryText }]}>−</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -554,20 +583,16 @@ const App: React.FC = () => {
 
 // スタイルの設定
 const styles = StyleSheet.create({
-  container: { 
+  container: {
     flex: 1,
-    backgroundColor: '#fff',
   },
-  safeArea: { 
+  safeArea: {
     flex: 1,
-    backgroundColor: '#fff', 
-  }, 
-  // キャンバスを中央に配置（等倍時はここが“固定端”になる）
-  flexFill: { 
-    flex: 1, 
-    alignItems: 'center', 
+  },
+  flexFill: {
+    flex: 1,
+    alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff',
   },
 
   // アイテムの色変更
@@ -578,8 +603,8 @@ const styles = StyleSheet.create({
     borderColor: 'red',
   },
   RedBorder: {
-    borderColor: 'red', // 枠線の色
-    borderWidth: 1.5, // 枠線の太さ
+    borderColor: 'red',
+    borderWidth: 1.5,
   },
 
   // ポップアップ
@@ -588,8 +613,7 @@ const styles = StyleSheet.create({
     bottom: 15,
     left: 15,
     right: 15,
-    backgroundColor: 'white',
-    paddingTop: 20, // 上に余白を作る（閉じるボタン用）
+    paddingTop: 20,
     paddingBottom: 20,
     paddingLeft: 15,
     paddingRight: 15,
@@ -602,13 +626,14 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 10,
     zIndex: 100,
+    borderWidth: 1,
   },
-  popupText: { 
-    flex: 1, 
-    fontSize: 15 
+  popupText: {
+    flex: 1,
+    fontSize: 15,
   },
   popupTextContainer: {
-    flex: 1, // 残り幅を全部使う
+    flex: 1,
   },
   infoRow: {
     flexDirection: 'row',
@@ -617,10 +642,10 @@ const styles = StyleSheet.create({
   infoLabel: {
     fontSize: 15,
     fontWeight: 'bold',
-    marginRight: 4, // ラベルと値の間に少しだけ余白
+    marginRight: 4,
   },
   infoValue: {
-    flex: 1, // 残り幅を全部使う
+    flex: 1,
     fontSize: 15,
     lineHeight: 20,
   },
@@ -629,17 +654,17 @@ const styles = StyleSheet.create({
     top: 3,
     right: 3,
     padding: 3,
-    zIndex: 10, 
-    },
+    zIndex: 10,
+  },
 
   // 検索
-  searchBar: { 
-    position: 'absolute', 
-    left: 20, 
-    right: 20 
+  searchBar: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 50,
   },
   searchDesign: {
-    backgroundColor: 'white',
     borderRadius: 10,
     padding: 10,
     shadowColor: '#000',
@@ -647,9 +672,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 1,
   },
   searchResultsContainer: {
-    backgroundColor: 'white',
     borderRadius: 10,
     marginTop: 5,
     shadowColor: '#000',
@@ -659,11 +684,11 @@ const styles = StyleSheet.create({
     elevation: 5,
     zIndex: 10,
     maxHeight: SCREEN_HEIGHT * 0.75,
+    borderWidth: 1,
   },
   searchResultBox: {
     padding: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
 
   // 自動販売機
@@ -687,10 +712,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
     elevation: 2,
   },
-  filterIcon: { 
-    width: 50, 
-    height: 50, 
-    resizeMode: 'contain' 
+  filterIcon: {
+    width: 50,
+    height: 50,
+    resizeMode: 'contain',
   },
 
   // 拡大縮小ボタン
@@ -699,9 +724,9 @@ const styles = StyleSheet.create({
     right: 20,
     flexDirection: 'column',
     gap: 10,
+    zIndex: 40,
   },
   zoomButton: {
-    backgroundColor: 'white',
     padding: 10,
     borderRadius: 5,
     marginBottom: 10,
@@ -712,15 +737,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 1,
   },
-  zoomButtonDisabled: { 
-    opacity: 0.4 // 無効時は薄くする
+  zoomButtonDisabled: {
+    opacity: 0.4,
   },
-  zoomLabel: { 
-    fontSize: 20, 
-    fontWeight: 'bold', 
-    color: '#000', 
-    textAlign: 'center' 
+  zoomLabel: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
 });
 
