@@ -5,6 +5,7 @@
 ## 📱 主な機能
 
 ### 🗓️ 時間割管理
+
 - CSVファイルから時間割をインポート（検索ボックスから授業候補を選ぶだけで **曜日/時限/教員/教室** を自動反映）
 - 授業の登録・編集・削除・連続コマの一括登録
 - テンプレート切替・共有機能
@@ -12,19 +13,29 @@
 - 大学カレンダーとの同期
 
 ### 🗺️ 学内マップ
+
 - 画質が荒くならないsvg形式の学内マップ
 - 授業・建物・研究室の検索
 - 自動販売機の位置をアイコンで表示
 - ピンチズーム・パン操作対応
 
 ### ✅ ToDoリスト
+
 - タスクの作成・編集・削除
 - カテゴリ（タグ）絞り込み，**期限/追加日**の並び替え
 - **週次の自動生成**（定期課題）に対応
 
 ### ⚙️ 設定
+
 - テーマ切り替え（デフォルト/ダーク/ライト）
 - お問い合わせ・利用者アンケート・プライバシーポリシーへのリンク
+
+## 📄 成果物（ドキュメント）
+
+- iOSリリース手順書: [docs/release/ios_release.md](docs/release/ios_release.md)
+- Androidビルド・提出手順書: [docs/release/android_release.md](docs/release/android_release.md)
+- プロジェクト構成: [docs/architecture/project_structure.md](docs/architecture/project_structure.md)
+- 更新履歴・開発データ: [docs/updates/release_history.md](docs/updates/release_history.md)
 
 ## 🚀 セットアップ
 

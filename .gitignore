@@ -39,3 +39,4 @@ yarn-error.*
 
 expo-env.d.ts
 # @end expo-clicrash.log
+src/assets/data/timetable_private.csv
